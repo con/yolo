@@ -14,17 +14,24 @@ Then run:
 
 ```bash
 podman run -it --rm \
-  --privileged \
-  --user $(id -u):$(id -g) \
+  --userns=keep-id \
   -v ~/.claude:/home/node/.claude:Z \
   -v "$(pwd):/workspace:Z" \
   -w /workspace \
-  -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
   -e HOME=/home/node \
   claude-code
 ```
 
-> **Note**: The `:Z` flag handles SELinux relabeling. The `--user` flag ensures files created in mounted volumes are owned by you on the host.
+## First-Time Login
+
+On your first run, you'll need to authenticate:
+
+1. Claude Code will display a URL like `https://claude.ai/oauth/authorize?...`
+2. Copy the URL and paste it into a browser on your host machine
+3. Complete the authentication in your browser
+4. Copy the code from the browser and paste it back into the container terminal
+
+Your credentials are stored in `~/.claude` on your host, so you only need to login once. Subsequent runs will use the stored credentials automatically.
 
 ## What's Included
 
@@ -38,52 +45,28 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 ## Command Breakdown
 
-- `--privileged`: Grants full permissions to the container (needed for some system operations)
-- `--user $(id -u):$(id -g)`: Run as your host user to avoid permission issues
+- `--userns=keep-id`: Maps your host user ID inside the container so files are owned correctly
 - `-v ~/.claude:/home/node/.claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
 - `-v "$(pwd):/workspace:Z"`: Bind mounts your current working directory into `/workspace`
 - `-w /workspace`: Sets the working directory inside the container
 - `-e HOME=/home/node`: Sets HOME so Claude Code finds its config
-- `-e ANTHROPIC_API_KEY`: Passes your API key to the container
 - `--rm`: Automatically removes the container when it exits
 - `-it`: Interactive terminal
-
-## Security Considerations
-
-⚠️ **Important**: `--privileged` gives the container full access to your host system. Only use this when:
-- Running on your local development machine
-- You trust the container image
-- You need system-level operations (device access, etc.)
-
-For less privileged access, consider specific capabilities instead:
-
-```bash
-podman run -it --rm \
-  --cap-add=SYS_PTRACE \
-  --cap-add=NET_ADMIN \
-  --user $(id -u):$(id -g) \
-  -v ~/.claude:/home/node/.claude:Z \
-  -v "$(pwd):/workspace:Z" \
-  -w /workspace \
-  -e HOME=/home/node \
-  -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-  claude-code
-```
 
 ## Tips
 
 1. **Persist configuration**: The `~/.claude` bind mount ensures your settings, API keys, and session history persist between container runs
 
-2. **Git credentials**: If you need git operations, also mount your git config:
+2. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
+
+3. **Git credentials**: If you need git operations, also mount your git config:
    ```bash
    -v ~/.gitconfig:/home/node/.gitconfig:Z \
    -v ~/.ssh:/home/node/.ssh:ro,Z
    ```
 
-3. **Multiple directories**: Mount additional directories as needed:
+4. **Multiple directories**: Mount additional directories as needed:
    ```bash
    -v ~/projects:/projects:Z \
    -v ~/data:/data:Z
    ```
-
-4. **File ownership**: By running with `--user $(id -u):$(id -g)`, files created or modified inside the container will be owned by your host user
