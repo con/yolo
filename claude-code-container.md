@@ -7,7 +7,7 @@ This guide shows how to run claude-code in a Podman container with full permissi
 First, build the image from the `ai/images/` directory:
 
 ```bash
-podman build -t claude-code ai/images/
+podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t claude-code ai/images/
 ```
 
 Then run:
