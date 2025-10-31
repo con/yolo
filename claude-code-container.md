@@ -21,6 +21,17 @@ After setup, just run `YOLO` from any directory to start Claude Code in YOLO mod
 
 > **TODO**: Add curl-based one-liner setup once this PR is merged
 
+## First-Time Login
+
+On your first run, you'll need to authenticate:
+
+1. Claude Code will display a URL like `https://claude.ai/oauth/authorize?...`
+2. Copy the URL and paste it into a browser on your host machine
+3. Complete the authentication in your browser
+4. Copy the code from the browser and paste it back into the container terminal
+
+Your credentials are stored in `~/.claude` on your host, so you only need to login once. Subsequent runs will use the stored credentials automatically.
+
 ## Manual Setup
 
 If you prefer to run commands manually, first build the image from the `ai/images/` directory:
@@ -46,17 +57,6 @@ podman run -it --rm \
 ```
 
 ⚠️ **Note**: This uses `--dangerously-skip-permissions` to bypass all permission prompts. This is safe in containerized environments where the container provides isolation from your host system.
-
-## First-Time Login
-
-On your first run, you'll need to authenticate:
-
-1. Claude Code will display a URL like `https://claude.ai/oauth/authorize?...`
-2. Copy the URL and paste it into a browser on your host machine
-3. Complete the authentication in your browser
-4. Copy the code from the browser and paste it back into the container terminal
-
-Your credentials are stored in `~/.claude` on your host, so you only need to login once. Subsequent runs will use the stored credentials automatically.
 
 ## What's Included
 
