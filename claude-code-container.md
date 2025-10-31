@@ -70,33 +70,6 @@ podman run -it --rm \
   claude-code
 ```
 
-## Alternative: Podman Compose
-
-Create a `podman-compose.yml`:
-
-```yaml
-version: '3.8'
-services:
-  claude-code:
-    build: ./ai/images
-    privileged: true
-    user: "${UID}:${GID}"
-    volumes:
-      - ~/.claude:/home/node/.claude:Z
-      - .:/workspace:Z
-    working_dir: /workspace
-    environment:
-      - HOME=/home/node
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-    stdin_open: true
-    tty: true
-```
-
-Run with:
-```bash
-UID=$(id -u) GID=$(id -g) podman-compose run --rm claude-code
-```
-
 ## Tips
 
 1. **Persist configuration**: The `~/.claude` bind mount ensures your settings, API keys, and session history persist between container runs
