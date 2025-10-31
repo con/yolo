@@ -1,6 +1,6 @@
 # Running Claude Code in a Container
 
-This guide shows how to run claude-code in a Podman container with full permissions while preserving your configuration and working directory access.
+This guide shows how to run claude-code in a Podman container while preserving your configuration and working directory access.
 
 ## Quick Start
 
@@ -15,10 +15,10 @@ Then run:
 ```bash
 podman run -it --rm \
   --userns=keep-id \
-  -v ~/.claude:/home/node/.claude:Z \
+  -v ~/.claude:/claude:Z \
   -v "$(pwd):/workspace:Z" \
   -w /workspace \
-  -e HOME=/home/node \
+  -e CLAUDE_CONFIG_DIR=/claude \
   claude-code
 ```
 
@@ -33,6 +33,23 @@ On your first run, you'll need to authenticate:
 
 Your credentials are stored in `~/.claude` on your host, so you only need to login once. Subsequent runs will use the stored credentials automatically.
 
+## YOLO Mode (Skip Permission Prompts)
+
+For faster development in a sandboxed environment, you can skip all permission prompts:
+
+```bash
+podman run -it --rm \
+  --userns=keep-id \
+  -v ~/.claude:/claude:Z \
+  -v "$(pwd):/workspace:Z" \
+  -w /workspace \
+  -e CLAUDE_CONFIG_DIR=/claude \
+  claude-code \
+  claude --dangerously-skip-permissions
+```
+
+⚠️ **Note**: This bypasses all safety checks. Only use in trusted, isolated environments like containers.
+
 ## What's Included
 
 The Dockerfile (based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/main/.devcontainer/Dockerfile)) includes:
@@ -46,10 +63,10 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 ## Command Breakdown
 
 - `--userns=keep-id`: Maps your host user ID inside the container so files are owned correctly
-- `-v ~/.claude:/home/node/.claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
+- `-v ~/.claude:/claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
 - `-v "$(pwd):/workspace:Z"`: Bind mounts your current working directory into `/workspace`
 - `-w /workspace`: Sets the working directory inside the container
-- `-e HOME=/home/node`: Sets HOME so Claude Code finds its config
+- `-e CLAUDE_CONFIG_DIR=/claude`: Tells Claude Code where to find its configuration
 - `--rm`: Automatically removes the container when it exits
 - `-it`: Interactive terminal
 
@@ -59,10 +76,11 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 2. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
-3. **Git credentials**: If you need git operations, also mount your git config:
+3. **Git credentials**: If you need git operations, mount your git config. Since user paths vary with `--userns=keep-id`, use environment variables:
    ```bash
-   -v ~/.gitconfig:/home/node/.gitconfig:Z \
-   -v ~/.ssh:/home/node/.ssh:ro,Z
+   -v ~/.gitconfig:/tmp/.gitconfig:Z \
+   -v ~/.ssh:/tmp/.ssh:ro,Z \
+   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig
    ```
 
 4. **Multiple directories**: Mount additional directories as needed:
