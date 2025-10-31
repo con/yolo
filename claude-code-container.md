@@ -76,9 +76,9 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 2. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
-3. **Git credentials**: If you need git operations, mount your git config. Since user paths vary with `--userns=keep-id`, use environment variables:
+3. **Git credentials**: If you need git operations, mount your git config read-only. Since user paths vary with `--userns=keep-id`, use environment variables:
    ```bash
-   -v ~/.gitconfig:/tmp/.gitconfig:Z \
+   -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
    -v ~/.ssh:/tmp/.ssh:ro,Z \
    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig
    ```
