@@ -2,9 +2,28 @@
 
 This guide shows how to run claude-code in a Podman container while preserving your configuration and working directory access.
 
-## Quick Start
+## Easy Setup (Recommended)
 
-First, build the image from the `ai/images/` directory:
+Clone the repository and run the setup script to build the container and optionally create a `YOLO` command:
+
+```bash
+git clone https://github.com/con/catenate.git
+cd catenate
+./ai/setup-yolo.sh
+```
+
+This will:
+1. Build the container image if it doesn't exist
+2. Optionally create a `YOLO` shell function
+3. Configure everything for you
+
+After setup, just run `YOLO` from any directory to start Claude Code in YOLO mode!
+
+> **TODO**: Add curl-based one-liner setup once this PR is merged
+
+## Manual Setup
+
+If you prefer to run commands manually, first build the image from the `ai/images/` directory:
 
 ```bash
 podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t claude-code ai/images/
