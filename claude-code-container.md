@@ -1,42 +1,30 @@
 # Running Claude Code in a Container
 
-This guide shows how to run claude-code in a container (Docker or Podman) with full permissions while preserving your configuration and working directory access.
+This guide shows how to run claude-code in a Podman container with full permissions while preserving your configuration and working directory access.
 
 ## Quick Start
 
 First, build the image from the `ai/images/` directory:
 
 ```bash
-# Docker
-docker build -t claude-code ai/images/
-
-# Podman
 podman build -t claude-code ai/images/
 ```
 
 Then run:
 
 ```bash
-# Docker
-docker run -it --rm \
-  --privileged \
-  -v ~/.claude:/home/node/.claude \
-  -v "$(pwd):/workspace" \
-  -w /workspace \
-  -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-  claude-code
-
-# Podman
 podman run -it --rm \
   --privileged \
+  --user $(id -u):$(id -g) \
   -v ~/.claude:/home/node/.claude:Z \
   -v "$(pwd):/workspace:Z" \
   -w /workspace \
   -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
+  -e HOME=/home/node \
   claude-code
 ```
 
-> **Note**: Podman uses `:Z` flag for SELinux relabeling on systems that enforce SELinux.
+> **Note**: The `:Z` flag handles SELinux relabeling. The `--user` flag ensures files created in mounted volumes are owned by you on the host.
 
 ## What's Included
 
@@ -51,9 +39,11 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 ## Command Breakdown
 
 - `--privileged`: Grants full permissions to the container (needed for some system operations)
-- `-v ~/.claude:/home/node/.claude`: Bind mounts your Claude configuration directory
-- `-v "$(pwd):/workspace"`: Bind mounts your current working directory into `/workspace`
+- `--user $(id -u):$(id -g)`: Run as your host user to avoid permission issues
+- `-v ~/.claude:/home/node/.claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
+- `-v "$(pwd):/workspace:Z"`: Bind mounts your current working directory into `/workspace`
 - `-w /workspace`: Sets the working directory inside the container
+- `-e HOME=/home/node`: Sets HOME so Claude Code finds its config
 - `-e ANTHROPIC_API_KEY`: Passes your API key to the container
 - `--rm`: Automatically removes the container when it exits
 - `-it`: Interactive terminal
@@ -63,35 +53,26 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 ⚠️ **Important**: `--privileged` gives the container full access to your host system. Only use this when:
 - Running on your local development machine
 - You trust the container image
-- You need system-level operations (Docker-in-Docker, device access, etc.)
+- You need system-level operations (device access, etc.)
 
 For less privileged access, consider specific capabilities instead:
 
 ```bash
-# Docker
-docker run -it --rm \
-  --cap-add=SYS_PTRACE \
-  --cap-add=NET_ADMIN \
-  -v ~/.claude:/home/node/.claude \
-  -v "$(pwd):/workspace" \
-  -w /workspace \
-  -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-  claude-code
-
-# Podman
 podman run -it --rm \
   --cap-add=SYS_PTRACE \
   --cap-add=NET_ADMIN \
+  --user $(id -u):$(id -g) \
   -v ~/.claude:/home/node/.claude:Z \
   -v "$(pwd):/workspace:Z" \
   -w /workspace \
+  -e HOME=/home/node \
   -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
   claude-code
 ```
 
-## Alternative: Compose
+## Alternative: Podman Compose
 
-Create a `docker-compose.yml` or `podman-compose.yml`:
+Create a `podman-compose.yml`:
 
 ```yaml
 version: '3.8'
@@ -99,11 +80,13 @@ services:
   claude-code:
     build: ./ai/images
     privileged: true
+    user: "${UID}:${GID}"
     volumes:
-      - ~/.claude:/home/node/.claude
-      - .:/workspace
+      - ~/.claude:/home/node/.claude:Z
+      - .:/workspace:Z
     working_dir: /workspace
     environment:
+      - HOME=/home/node
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     stdin_open: true
     tty: true
@@ -111,11 +94,7 @@ services:
 
 Run with:
 ```bash
-# Docker
-docker-compose run --rm claude-code
-
-# Podman
-podman-compose run --rm claude-code
+UID=$(id -u) GID=$(id -g) podman-compose run --rm claude-code
 ```
 
 ## Tips
@@ -124,17 +103,14 @@ podman-compose run --rm claude-code
 
 2. **Git credentials**: If you need git operations, also mount your git config:
    ```bash
-   -v ~/.gitconfig:/home/node/.gitconfig \
-   -v ~/.ssh:/home/node/.ssh:ro
+   -v ~/.gitconfig:/home/node/.gitconfig:Z \
+   -v ~/.ssh:/home/node/.ssh:ro,Z
    ```
 
 3. **Multiple directories**: Mount additional directories as needed:
    ```bash
-   -v ~/projects:/projects \
-   -v ~/data:/data
+   -v ~/projects:/projects:Z \
+   -v ~/data:/data:Z
    ```
 
-4. **Running as your user**: The image runs as the `node` user (UID 1000) by default. If you need different permissions, you can override:
-   ```bash
-   --user $(id -u):$(id -g)
-   ```
+4. **File ownership**: By running with `--user $(id -u):$(id -g)`, files created or modified inside the container will be owned by your host user
