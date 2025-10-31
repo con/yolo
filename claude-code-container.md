@@ -47,7 +47,6 @@ podman run -it --rm \
   --userns=keep-id \
   -v ~/.claude:/claude:Z \
   -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
-  -v ~/.ssh:/tmp/.ssh:ro,Z \
   -v "$(pwd):/workspace:Z" \
   -w /workspace \
   -e CLAUDE_CONFIG_DIR=/claude \
@@ -71,8 +70,7 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 - `--userns=keep-id`: Maps your host user ID inside the container so files are owned correctly
 - `-v ~/.claude:/claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
-- `-v ~/.gitconfig:/tmp/.gitconfig:ro,Z`: Mounts git config read-only
-- `-v ~/.ssh:/tmp/.ssh:ro,Z`: Mounts SSH keys read-only for git authentication
+- `-v ~/.gitconfig:/tmp/.gitconfig:ro,Z`: Mounts git config read-only for commits (push operations not supported)
 - `-v "$(pwd):/workspace:Z"`: Bind mounts your current working directory into `/workspace`
 - `-w /workspace`: Sets the working directory inside the container
 - `-e CLAUDE_CONFIG_DIR=/claude`: Tells Claude Code where to find its configuration
@@ -87,7 +85,9 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 2. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
-3. **Multiple directories**: Mount additional directories as needed:
+3. **Git operations**: Git config is mounted read-only, so Claude Code can read your identity and make commits. However, **SSH keys are not mounted**, so `git push` operations will fail. You'll need to push from your host after Claude Code commits your changes.
+
+4. **Multiple directories**: Mount additional directories as needed:
    ```bash
    -v ~/projects:/projects:Z \
    -v ~/data:/data:Z

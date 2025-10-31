@@ -70,7 +70,6 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "  podman run -it --rm --userns=keep-id \\"
     echo "    -v ~/.claude:/claude:Z \\"
     echo "    -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \\"
-    echo "    -v ~/.ssh:/tmp/.ssh:ro,Z \\"
     echo "    -v \"\$(pwd):/workspace:Z\" \\"
     echo "    -w /workspace \\"
     echo "    -e CLAUDE_CONFIG_DIR=/claude \\"
@@ -92,7 +91,6 @@ YOLO() {
         --userns=keep-id \
         -v ~/.claude:/claude:Z \
         -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
-        -v ~/.ssh:/tmp/.ssh:ro,Z \
         -v "$(pwd):/workspace:Z" \
         -w /workspace \
         -e CLAUDE_CONFIG_DIR=/claude \
