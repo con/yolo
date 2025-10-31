@@ -60,13 +60,12 @@ podman run -it --rm \
 
 ## What's Included
 
-The Dockerfile (based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/main/.devcontainer/Dockerfile)) includes:
+The Dockerfile (based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile)) includes:
 
 - **Claude Code CLI**: Latest version
 - **Development tools**: git, gh (GitHub CLI), jq, vim, nano, zsh
 - **Git enhancements**: delta (better diffs), fzf (fuzzy finder)
-- **Network tools**: iptables, ipset, dnsutils
-- **Firewall script**: Optional sandboxing for restricted network access
+- **Network tools**: iptables, ipset, dnsutils for container networking
 
 ## Command Breakdown
 
