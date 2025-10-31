@@ -16,11 +16,17 @@ Then run:
 podman run -it --rm \
   --userns=keep-id \
   -v ~/.claude:/claude:Z \
+  -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
+  -v ~/.ssh:/tmp/.ssh:ro,Z \
   -v "$(pwd):/workspace:Z" \
   -w /workspace \
   -e CLAUDE_CONFIG_DIR=/claude \
-  claude-code
+  -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
+  claude-code \
+  claude --dangerously-skip-permissions
 ```
+
+⚠️ **Note**: This uses `--dangerously-skip-permissions` to bypass all permission prompts. This is safe in containerized environments where the container provides isolation from your host system.
 
 ## First-Time Login
 
@@ -32,23 +38,6 @@ On your first run, you'll need to authenticate:
 4. Copy the code from the browser and paste it back into the container terminal
 
 Your credentials are stored in `~/.claude` on your host, so you only need to login once. Subsequent runs will use the stored credentials automatically.
-
-## YOLO Mode (Skip Permission Prompts)
-
-For faster development in a sandboxed environment, you can skip all permission prompts:
-
-```bash
-podman run -it --rm \
-  --userns=keep-id \
-  -v ~/.claude:/claude:Z \
-  -v "$(pwd):/workspace:Z" \
-  -w /workspace \
-  -e CLAUDE_CONFIG_DIR=/claude \
-  claude-code \
-  claude --dangerously-skip-permissions
-```
-
-⚠️ **Note**: This bypasses all safety checks. Only use in trusted, isolated environments like containers.
 
 ## What's Included
 
@@ -64,9 +53,13 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 - `--userns=keep-id`: Maps your host user ID inside the container so files are owned correctly
 - `-v ~/.claude:/claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
+- `-v ~/.gitconfig:/tmp/.gitconfig:ro,Z`: Mounts git config read-only
+- `-v ~/.ssh:/tmp/.ssh:ro,Z`: Mounts SSH keys read-only for git authentication
 - `-v "$(pwd):/workspace:Z"`: Bind mounts your current working directory into `/workspace`
 - `-w /workspace`: Sets the working directory inside the container
 - `-e CLAUDE_CONFIG_DIR=/claude`: Tells Claude Code where to find its configuration
+- `-e GIT_CONFIG_GLOBAL=/tmp/.gitconfig`: Points git to the mounted config
+- `claude --dangerously-skip-permissions`: Skips all permission prompts (safe in containers)
 - `--rm`: Automatically removes the container when it exits
 - `-it`: Interactive terminal
 
@@ -76,14 +69,7 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
 
 2. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
-3. **Git credentials**: If you need git operations, mount your git config read-only. Since user paths vary with `--userns=keep-id`, use environment variables:
-   ```bash
-   -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
-   -v ~/.ssh:/tmp/.ssh:ro,Z \
-   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig
-   ```
-
-4. **Multiple directories**: Mount additional directories as needed:
+3. **Multiple directories**: Mount additional directories as needed:
    ```bash
    -v ~/projects:/projects:Z \
    -v ~/data:/data:Z
