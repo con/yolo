@@ -24,9 +24,14 @@ if [ "$found_separator" = 0 ]; then
     PODMAN_ARGS=()
 fi
 
+# Give a meaningful name based on PWD and the PID to help identifying
+# all those podman containers
+name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" )
+
 podman run -it --rm \
     --user="$USER" \
     --userns=keep-id \
+    --name="$name" \
     -v "$HOME/.claude:/claude:Z" \
     -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
     -v "$(pwd):/workspace:Z" \
