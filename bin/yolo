@@ -18,7 +18,14 @@ for arg in "$@"; do
     fi
 done
 
+if [ "$found_separator" = 0 ]; then
+    # so we did not find any -- everything is actually CLAUDE_ARGS
+    CLAUDE_ARGS=("${PODMAN_ARGS[@]}")
+    PODMAN_ARGS=()
+fi
+
 podman run -it --rm \
+    --user="$USER" \
     --userns=keep-id \
     -v "$HOME/.claude:/claude:Z" \
     -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
