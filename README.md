@@ -7,9 +7,9 @@ This guide shows how to run claude-code in a Podman container while preserving y
 Clone the repository and run the setup script to build the container and optionally create a `YOLO` command:
 
 ```bash
-git clone https://github.com/con/catenate.git
-cd catenate
-./ai/setup-yolo.sh
+git clone https://github.com/con/yolo
+cd yolo
+./setup-yolo.sh
 ```
 
 This will:
