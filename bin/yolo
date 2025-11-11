@@ -9,7 +9,7 @@ CLAUDE_ARGS=()
 found_separator=0
 
 for arg in "$@"; do
-    if [ "$arg" = "--" ]; then
+    if [ "$found_separator" -eq 0 ] && [ "$arg" = "--" ]; then
         found_separator=1
     elif [ "$found_separator" -eq 1 ]; then
         CLAUDE_ARGS+=("$arg")
