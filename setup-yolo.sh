@@ -79,42 +79,11 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Create yolo script
+# Install yolo script
 echo
 echo "Installing yolo script to $YOLO_SCRIPT..."
 
-cat > "$YOLO_SCRIPT" << 'EOF'
-#!/bin/bash
-# Claude Code YOLO mode - auto-approve all actions in containerized environment
-
-# Parse arguments: everything before -- goes to podman, everything after goes to claude
-PODMAN_ARGS=()
-CLAUDE_ARGS=()
-found_separator=false
-
-for arg in "$@"; do
-    if [ "$arg" = "--" ]; then
-        found_separator=true
-    elif [ "$found_separator" = true ]; then
-        CLAUDE_ARGS+=("$arg")
-    else
-        PODMAN_ARGS+=("$arg")
-    fi
-done
-
-podman run -it --rm \
-    --userns=keep-id \
-    -v ~/.claude:/claude:Z \
-    -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
-    -v "$(pwd):/workspace:Z" \
-    -w /workspace \
-    -e CLAUDE_CONFIG_DIR=/claude \
-    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
-    "${PODMAN_ARGS[@]}" \
-    con-bomination-claude-code \
-    claude --dangerously-skip-permissions "${CLAUDE_ARGS[@]}"
-EOF
-
+cp "$SCRIPT_DIR/bin/yolo" "$YOLO_SCRIPT"
 chmod +x "$YOLO_SCRIPT"
 
 echo "✓ yolo script installed to $YOLO_SCRIPT"

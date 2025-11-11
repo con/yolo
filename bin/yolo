@@ -1,0 +1,31 @@
+#!/bin/bash
+# Claude Code YOLO mode - auto-approve all actions in containerized environment
+
+set -e
+
+# Parse arguments: everything before -- goes to podman, everything after goes to claude
+PODMAN_ARGS=()
+CLAUDE_ARGS=()
+found_separator=0
+
+for arg in "$@"; do
+    if [ "$arg" = "--" ]; then
+        found_separator=1
+    elif [ "$found_separator" -eq 1 ]; then
+        CLAUDE_ARGS+=("$arg")
+    else
+        PODMAN_ARGS+=("$arg")
+    fi
+done
+
+podman run -it --rm \
+    --userns=keep-id \
+    -v "$HOME/.claude:/claude:Z" \
+    -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
+    -v "$(pwd):/workspace:Z" \
+    -w /workspace \
+    -e CLAUDE_CONFIG_DIR=/claude \
+    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
+    "${PODMAN_ARGS[@]}" \
+    con-bomination-claude-code \
+    claude --dangerously-skip-permissions "${CLAUDE_ARGS[@]}"
