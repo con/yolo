@@ -28,39 +28,36 @@ echo
 echo "================================"
 echo
 
-# Detect shell
-SHELL_NAME=$(basename "$SHELL")
-case "$SHELL_NAME" in
-    bash)
-        RC_FILE="$HOME/.bashrc"
-        ;;
-    zsh)
-        RC_FILE="$HOME/.zshrc"
-        ;;
-    *)
-        echo "⚠️  Unsupported shell: $SHELL_NAME"
-        echo "   Manually add the YOLO function to your shell config"
-        exit 0
-        ;;
-esac
+# Install YOLO script to ~/.local/bin
+BIN_DIR="$HOME/.local/bin"
+YOLO_SCRIPT="$BIN_DIR/yolo"
 
-# Check if YOLO function already exists
-if grep -q "^YOLO()" "$RC_FILE" 2>/dev/null; then
-    echo "✓ YOLO function already exists in $RC_FILE"
+# Create directory if it doesn't exist
+mkdir -p "$BIN_DIR"
+
+# Check if yolo script already exists
+if [ -f "$YOLO_SCRIPT" ]; then
+    echo "✓ yolo script already exists at $YOLO_SCRIPT"
     echo
-    echo "You're all set! Just run 'YOLO' from any directory to start Claude Code."
-    exit 0
+    read -p "Overwrite existing script? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo
+        echo "Setup complete! Container image is ready."
+        echo "Use existing 'yolo' command from any directory."
+        exit 0
+    fi
 fi
 
-# Ask user if they want to create the alias
-echo "Would you like to create the 'YOLO' command?"
+# Ask user if they want to install the script
+echo "Would you like to install the 'yolo' command?"
 echo
-echo "This will add a shell function to $RC_FILE that lets you run:"
-echo "  $ YOLO"
+echo "This will create a script at $YOLO_SCRIPT that lets you run:"
+echo "  $ yolo"
 echo
 echo "from any directory to start Claude Code in YOLO mode (auto-approve all actions)."
 echo
-read -p "Create YOLO command? [y/N] " -n 1 -r
+read -p "Install yolo command? [y/N] " -n 1 -r
 echo
 
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -79,37 +76,49 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Add YOLO function to shell config
+# Create yolo script
 echo
-echo "Adding YOLO function to $RC_FILE..."
+echo "Installing yolo script to $YOLO_SCRIPT..."
 
-cat >> "$RC_FILE" << 'EOF'
-
+cat > "$YOLO_SCRIPT" << 'EOF'
+#!/bin/bash
 # Claude Code YOLO mode - auto-approve all actions in containerized environment
-YOLO() {
-    podman run -it --rm \
-        --userns=keep-id \
-        -v ~/.claude:/claude:Z \
-        -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
-        -v "$(pwd):/workspace:Z" \
-        -w /workspace \
-        -e CLAUDE_CONFIG_DIR=/claude \
-        -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
-        con-bomination-claude-code \
-        claude --dangerously-skip-permissions "$@"
-}
+
+podman run -it --rm \
+    --userns=keep-id \
+    -v ~/.claude:/claude:Z \
+    -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
+    -v "$(pwd):/workspace:Z" \
+    -w /workspace \
+    -e CLAUDE_CONFIG_DIR=/claude \
+    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
+    con-bomination-claude-code \
+    claude --dangerously-skip-permissions "$@"
 EOF
 
-echo "✓ YOLO function added to $RC_FILE"
+chmod +x "$YOLO_SCRIPT"
+
+echo "✓ yolo script installed to $YOLO_SCRIPT"
 echo
+
+# Check if ~/.local/bin is in PATH
+if [[ ":$PATH:" == *":$BIN_DIR:"* ]]; then
+    echo "✓ $BIN_DIR is already in your PATH"
+else
+    echo "⚠️  $BIN_DIR is not in your PATH"
+    echo "   Add this line to your shell config (~/.bashrc or ~/.zshrc):"
+    echo "   export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo
+fi
+
 echo "================================"
 echo "🎉 Setup complete!"
 echo "================================"
 echo
 echo "To start using YOLO mode:"
-echo "  1. Reload your shell: source $RC_FILE"
+echo "  1. Make sure ~/.local/bin is in your PATH (restart shell if needed)"
 echo "  2. Navigate to any project directory"
-echo "  3. Run: YOLO"
+echo "  3. Run: yolo"
 echo
 echo "The containerized Claude Code will start with full permissions"
 echo "in the current directory, with credentials and git access configured."
