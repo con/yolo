@@ -73,6 +73,9 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \\"
     echo "    $IMAGE_NAME \\"
     echo "    claude --dangerously-skip-permissions"
+    echo
+    echo "Pass extra podman options and claude arguments like:"
+    echo "  podman run ... [podman-options] $IMAGE_NAME claude [claude-args]"
     exit 0
 fi
 
@@ -84,6 +87,21 @@ cat > "$YOLO_SCRIPT" << 'EOF'
 #!/bin/bash
 # Claude Code YOLO mode - auto-approve all actions in containerized environment
 
+# Parse arguments: everything before -- goes to podman, everything after goes to claude
+PODMAN_ARGS=()
+CLAUDE_ARGS=()
+found_separator=false
+
+for arg in "$@"; do
+    if [ "$arg" = "--" ]; then
+        found_separator=true
+    elif [ "$found_separator" = true ]; then
+        CLAUDE_ARGS+=("$arg")
+    else
+        PODMAN_ARGS+=("$arg")
+    fi
+done
+
 podman run -it --rm \
     --userns=keep-id \
     -v ~/.claude:/claude:Z \
@@ -92,8 +110,9 @@ podman run -it --rm \
     -w /workspace \
     -e CLAUDE_CONFIG_DIR=/claude \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
+    "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \
-    claude --dangerously-skip-permissions "$@"
+    claude --dangerously-skip-permissions "${CLAUDE_ARGS[@]}"
 EOF
 
 chmod +x "$YOLO_SCRIPT"
@@ -119,6 +138,11 @@ echo "To start using YOLO mode:"
 echo "  1. Make sure ~/.local/bin is in your PATH (restart shell if needed)"
 echo "  2. Navigate to any project directory"
 echo "  3. Run: yolo"
+echo
+echo "Pass extra podman options before -- and claude arguments after:"
+echo "  yolo -v /host:/container --env FOO=bar -- \"help with this code\""
+echo "  yolo -v /data:/data --  # extra mounts only"
+echo "  yolo -- \"process files\"  # claude args only"
 echo
 echo "The containerized Claude Code will start with full permissions"
 echo "in the current directory, with credentials and git access configured."
