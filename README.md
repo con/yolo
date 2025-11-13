@@ -59,12 +59,7 @@ podman run -it --rm \
 
 ## What's Included
 
-The Dockerfile (based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile)) includes:
-
-- **Claude Code CLI**: Latest version
-- **Development tools**: git, gh (GitHub CLI), jq, vim, nano, zsh
-- **Git enhancements**: delta (better diffs), fzf (fuzzy finder)
-- **Network tools**: iptables, ipset, dnsutils for container networking
+The Dockerfile is based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile) and includes Claude Code CLI plus common development tools. See the Dockerfile for the complete list.
 
 ## Command Breakdown
 
@@ -92,3 +87,23 @@ The Dockerfile (based on [Anthropic's official setup](https://github.com/anthrop
    -v ~/projects:/projects:Z \
    -v ~/data:/data:Z
    ```
+
+## Security Considerations
+
+YOLO mode runs Claude Code with `--dangerously-skip-permissions`, providing unrestricted command execution within the container. The container provides isolation through:
+
+- **Filesystem boundaries**: Only `~/.claude`, `~/.gitconfig`, and your current working directory are accessible to Claude
+- **Process isolation**: Rootless podman user namespace isolation (`--userns=keep-id`)
+- **Limited host access**: SSH keys and other sensitive files are not mounted
+
+**What is NOT restricted:**
+
+- **Network access**: Claude can make arbitrary network connections from within the container (to package registries, APIs, external services, etc.)
+
+**When to be cautious:**
+
+- **Untrusted repositories**: Malicious code comments or documentation could exploit prompt injection to trick Claude into executing harmful commands or exfiltrating data
+- Mounting directories with sensitive data (credentials, private keys, confidential files)
+- Projects that access production systems or databases
+
+**For higher security needs**, consider running untrusted code in a separate container without mounting sensitive directories, or wait for integration with Anthropic's modern sandbox runtime which provides network-level restrictions.
