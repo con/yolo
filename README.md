@@ -17,7 +17,17 @@ This will:
 2. Optionally create a `YOLO` shell function
 3. Configure everything for you
 
-After setup, just run `YOLO` from any directory to start Claude Code in YOLO mode!
+After setup, just run `yolo` from any directory to start Claude Code in YOLO mode!
+
+By default, `yolo` preserves your original host paths to ensure session compatibility with native Claude Code. This means:
+- Your `~/.claude` directory is mounted at its original path
+- Your current directory is mounted at its original path (not `/workspace`)
+- Sessions created in the container can be resumed in your native environment and vice versa
+
+If you prefer the old behavior with anonymized paths (`/claude` and `/workspace`), use the `--global-claude` flag:
+```bash
+yolo --global-claude
+```
 
 > **TODO**: Add curl-based one-liner setup once this PR is merged
 
@@ -40,7 +50,22 @@ If you prefer to run commands manually, first build the image from the `ai/image
 podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t claude-code ai/images/
 ```
 
-Then run:
+Then run (with original host paths preserved by default):
+
+```bash
+podman run -it --rm \
+  --userns=keep-id \
+  -v ~/.claude:~/.claude:Z \
+  -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
+  -v "$(pwd):$(pwd):Z" \
+  -w "$(pwd)" \
+  -e CLAUDE_CONFIG_DIR=~/.claude \
+  -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
+  claude-code \
+  claude --dangerously-skip-permissions
+```
+
+Or with anonymized paths (old behavior):
 
 ```bash
 podman run -it --rm \
@@ -63,29 +88,49 @@ The Dockerfile is based on [Anthropic's official setup](https://github.com/anthr
 
 ## Command Breakdown
 
+### Default Behavior (Preserved Host Paths)
+
 - `--userns=keep-id`: Maps your host user ID inside the container so files are owned correctly
-- `-v ~/.claude:/claude:Z`: Bind mounts your Claude configuration directory with SELinux relabeling
+- `-v ~/.claude:~/.claude:Z`: Bind mounts your Claude configuration directory at its original path with SELinux relabeling
 - `-v ~/.gitconfig:/tmp/.gitconfig:ro,Z`: Mounts git config read-only for commits (push operations not supported)
-- `-v "$(pwd):/workspace:Z"`: Bind mounts your current working directory into `/workspace`
-- `-w /workspace`: Sets the working directory inside the container
-- `-e CLAUDE_CONFIG_DIR=/claude`: Tells Claude Code where to find its configuration
+- `-v "$(pwd):$(pwd):Z"`: Bind mounts your current working directory at its original path
+- `-w "$(pwd)"`: Sets the working directory inside the container to match your host path
+- `-e CLAUDE_CONFIG_DIR=~/.claude`: Tells Claude Code where to find its configuration (at original path)
 - `-e GIT_CONFIG_GLOBAL=/tmp/.gitconfig`: Points git to the mounted config
 - `claude --dangerously-skip-permissions`: Skips all permission prompts (safe in containers)
 - `--rm`: Automatically removes the container when it exits
 - `-it`: Interactive terminal
 
+This default behavior ensures that session histories and project paths are compatible between containerized and native Claude Code environments.
+
+### Anonymized Paths (Old Behavior with --global-claude)
+
+When using `--global-claude`, paths are mapped to generic container locations:
+- `-v ~/.claude:/claude:Z`: Mounts to `/claude` in container
+- `-v "$(pwd):/workspace:Z"`: Mounts to `/workspace` in container
+- `-w /workspace`: Working directory is `/workspace`
+- `-e CLAUDE_CONFIG_DIR=/claude`: Config directory is `/claude`
+
 ## Tips
 
 1. **Persist configuration**: The `~/.claude` bind mount ensures your settings, API keys, and session history persist between container runs
 
-2. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
+2. **Session compatibility**: By default, paths are preserved to match your host environment. This means:
+   - Sessions created in the container can be resumed in native Claude Code
+   - Project histories are organized by their original paths (e.g., `/home/user/project`) instead of collapsing under `/workspace`
+   - Use `--global-claude` if you need the old behavior with anonymized paths
 
-3. **Git operations**: Git config is mounted read-only, so Claude Code can read your identity and make commits. However, **SSH keys are not mounted**, so `git push` operations will fail. You'll need to push from your host after Claude Code commits your changes.
+3. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
-4. **Multiple directories**: Mount additional directories as needed:
+4. **Git operations**: Git config is mounted read-only, so Claude Code can read your identity and make commits. However, **SSH keys are not mounted**, so `git push` operations will fail. You'll need to push from your host after Claude Code commits your changes.
+
+5. **Multiple directories**: Mount additional directories as needed:
    ```bash
-   -v ~/projects:/projects:Z \
-   -v ~/data:/data:Z
+   yolo -v ~/projects:~/projects -v ~/data:~/data -- "help with this code"
+   ```
+   Or with anonymized paths:
+   ```bash
+   yolo --global-claude -v ~/projects:/projects -v ~/data:/data -- "help with this code"
    ```
 
 ## Security Considerations
