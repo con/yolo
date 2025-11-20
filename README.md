@@ -55,11 +55,11 @@ Then run (with original host paths preserved by default):
 ```bash
 podman run -it --rm \
   --userns=keep-id \
-  -v ~/.claude:~/.claude:Z \
+  -v "$HOME/.claude:$HOME/.claude:Z" \
   -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \
   -v "$(pwd):$(pwd):Z" \
   -w "$(pwd)" \
-  -e CLAUDE_CONFIG_DIR=~/.claude \
+  -e CLAUDE_CONFIG_DIR="$HOME/.claude" \
   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
   claude-code \
   claude --dangerously-skip-permissions
@@ -91,11 +91,11 @@ The Dockerfile is based on [Anthropic's official setup](https://github.com/anthr
 ### Default Behavior (Preserved Host Paths)
 
 - `--userns=keep-id`: Maps your host user ID inside the container so files are owned correctly
-- `-v ~/.claude:~/.claude:Z`: Bind mounts your Claude configuration directory at its original path with SELinux relabeling
+- `-v "$HOME/.claude:$HOME/.claude:Z"`: Bind mounts your Claude configuration directory at its original path with SELinux relabeling
 - `-v ~/.gitconfig:/tmp/.gitconfig:ro,Z`: Mounts git config read-only for commits (push operations not supported)
 - `-v "$(pwd):$(pwd):Z"`: Bind mounts your current working directory at its original path
 - `-w "$(pwd)"`: Sets the working directory inside the container to match your host path
-- `-e CLAUDE_CONFIG_DIR=~/.claude`: Tells Claude Code where to find its configuration (at original path)
+- `-e CLAUDE_CONFIG_DIR="$HOME/.claude"`: Tells Claude Code where to find its configuration (at original path)
 - `-e GIT_CONFIG_GLOBAL=/tmp/.gitconfig`: Points git to the mounted config
 - `claude --dangerously-skip-permissions`: Skips all permission prompts (safe in containers)
 - `--rm`: Automatically removes the container when it exits
