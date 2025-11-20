@@ -13,7 +13,7 @@ USE_GLOBAL_CLAUDE=0
 for arg in "$@"; do
     if [ "$arg" = "--global-claude" ]; then
         USE_GLOBAL_CLAUDE=1
-    elif [ "$found_separator" -eq 0 ] && [ "${arg:0:2}" = "--" ]; then
+    elif [ "$found_separator" -eq 0 ] && [ "$arg" = "--" ]; then
         found_separator=1
     elif [ "$found_separator" -eq 1 ]; then
         CLAUDE_ARGS+=("$arg")
