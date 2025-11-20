@@ -24,9 +24,9 @@ By default, `yolo` preserves your original host paths to ensure session compatib
 - Your current directory is mounted at its original path (not `/workspace`)
 - Sessions created in the container can be resumed in your native environment and vice versa
 
-If you prefer the old behavior with anonymized paths (`/claude` and `/workspace`), use the `--global-claude` flag:
+If you prefer the old behavior with anonymized paths (`/claude` and `/workspace`), use the `--anonymized-paths` flag:
 ```bash
-yolo --global-claude
+yolo --anonymized-paths
 ```
 
 > **TODO**: Add curl-based one-liner setup once this PR is merged
@@ -103,9 +103,9 @@ The Dockerfile is based on [Anthropic's official setup](https://github.com/anthr
 
 This default behavior ensures that session histories and project paths are compatible between containerized and native Claude Code environments.
 
-### Anonymized Paths (Old Behavior with --global-claude)
+### Anonymized Paths (Old Behavior with --anonymized-paths)
 
-When using `--global-claude`, paths are mapped to generic container locations:
+When using `--anonymized-paths`, paths are mapped to generic container locations:
 - `-v ~/.claude:/claude:Z`: Mounts to `/claude` in container
 - `-v "$(pwd):/workspace:Z"`: Mounts to `/workspace` in container
 - `-w /workspace`: Working directory is `/workspace`
@@ -118,7 +118,7 @@ When using `--global-claude`, paths are mapped to generic container locations:
 2. **Session compatibility**: By default, paths are preserved to match your host environment. This means:
    - Sessions created in the container can be resumed in native Claude Code
    - Project histories are organized by their original paths (e.g., `/home/user/project`) instead of collapsing under `/workspace`
-   - Use `--global-claude` if you need the old behavior with anonymized paths
+   - Use `--anonymized-paths` if you need the old behavior with anonymized paths
 
 3. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
@@ -130,7 +130,7 @@ When using `--global-claude`, paths are mapped to generic container locations:
    ```
    Or with anonymized paths:
    ```bash
-   yolo --global-claude -v ~/projects:/projects -v ~/data:/data -- "help with this code"
+   yolo --anonymized-paths -v ~/projects:/projects -v ~/data:/data -- "help with this code"
    ```
 
 ## Security Considerations

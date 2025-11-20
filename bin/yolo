@@ -4,15 +4,15 @@
 set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --global-claude flag
+# Also check for --anonymized-paths flag
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
-USE_GLOBAL_CLAUDE=0
+USE_ANONYMIZED_PATHS=0
 
 for arg in "$@"; do
-    if [ "$arg" = "--global-claude" ]; then
-        USE_GLOBAL_CLAUDE=1
+    if [ "$arg" = "--anonymized-paths" ]; then
+        USE_ANONYMIZED_PATHS=1
     elif [ "$found_separator" -eq 0 ] && [ "$arg" = "--" ]; then
         found_separator=1
     elif [ "$found_separator" -eq 1 ]; then
@@ -32,8 +32,8 @@ fi
 # all those podman containers
 name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" )
 
-# Determine paths based on --global-claude flag
-if [ "$USE_GLOBAL_CLAUDE" -eq 1 ]; then
+# Determine paths based on --anonymized-paths flag
+if [ "$USE_ANONYMIZED_PATHS" -eq 1 ]; then
     # Old behavior: use anonymized paths
     CLAUDE_DIR="/claude"
     WORKSPACE_DIR="/workspace"
