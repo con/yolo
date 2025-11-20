@@ -116,9 +116,11 @@ When using `--anonymized-paths`, paths are mapped to generic container locations
 1. **Persist configuration**: The `~/.claude` bind mount ensures your settings, API keys, and session history persist between container runs
 
 2. **Session compatibility**: By default, paths are preserved to match your host environment. This means:
-   - Sessions created in the container can be resumed in native Claude Code
-   - Project histories are organized by their original paths (e.g., `/home/user/project`) instead of collapsing under `/workspace`
-   - Use `--anonymized-paths` if you need the old behavior with anonymized paths
+   - Sessions created in the container can be resumed outside the container using `claude --continue` in your native environment
+   - Each project maintains its own session history based on its actual path (e.g., `/home/user/project`)
+   - You can seamlessly switch between containerized and native Claude Code for the same project
+
+   **Note**: With `--anonymized-paths`, all projects appear to be in `/workspace`, which allows `claude --continue` to retain context across different projects that were also run with this flag. This can be useful for maintaining conversation context when working on related codebases.
 
 3. **File ownership**: The `--userns=keep-id` flag ensures files created or modified inside the container will be owned by your host user, regardless of your UID
 
