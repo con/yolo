@@ -120,8 +120,8 @@ echo "  2. Navigate to any project directory"
 echo "  3. Run: yolo"
 echo
 echo "By default, yolo preserves original host paths for session compatibility."
-echo "Use --global-claude flag for anonymized paths (/claude, /workspace):"
-echo "  yolo --global-claude"
+echo "Use --anonymized-paths flag for anonymized paths (/claude, /workspace):"
+echo "  yolo --anonymized-paths"
 echo
 echo "Pass extra podman options before -- and claude arguments after:"
 echo "  yolo -v /host:/container --env FOO=bar -- \"help with this code\""
