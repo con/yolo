@@ -44,10 +44,10 @@ Your credentials are stored in `~/.claude` on your host, so you only need to log
 
 ## Manual Setup
 
-If you prefer to run commands manually, first build the image from the `ai/images/` directory:
+If you prefer to run commands manually, first build the image from the `images/` directory:
 
 ```bash
-podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t claude-code ai/images/
+podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t con-bomination-claude-code images/
 ```
 
 Then run (with original host paths preserved by default):
@@ -61,7 +61,7 @@ podman run -it --rm \
   -w "$(pwd)" \
   -e CLAUDE_CONFIG_DIR="$HOME/.claude" \
   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
-  claude-code \
+  con-bomination-claude-code \
   claude --dangerously-skip-permissions
 ```
 
@@ -76,7 +76,7 @@ podman run -it --rm \
   -w /workspace \
   -e CLAUDE_CONFIG_DIR=/claude \
   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
-  claude-code \
+  con-bomination-claude-code \
   claude --dangerously-skip-permissions
 ```
 
