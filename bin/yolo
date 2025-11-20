@@ -4,12 +4,16 @@
 set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
+# Also check for --anonymized-paths flag
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
+USE_ANONYMIZED_PATHS=0
 
 for arg in "$@"; do
-    if [ "$found_separator" -eq 0 ] && [ "${arg:0:2}" = "--" ]; then
+    if [ "$arg" = "--anonymized-paths" ]; then
+        USE_ANONYMIZED_PATHS=1
+    elif [ "$found_separator" -eq 0 ] && [ "$arg" = "--" ]; then
         found_separator=1
     elif [ "$found_separator" -eq 1 ]; then
         CLAUDE_ARGS+=("$arg")
@@ -28,15 +32,30 @@ fi
 # all those podman containers
 name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" )
 
+# Determine paths based on --anonymized-paths flag
+if [ "$USE_ANONYMIZED_PATHS" -eq 1 ]; then
+    # Old behavior: use anonymized paths
+    CLAUDE_DIR="/claude"
+    WORKSPACE_DIR="/workspace"
+    CLAUDE_MOUNT="$HOME/.claude:/claude:Z"
+    WORKSPACE_MOUNT="$(pwd):/workspace:Z"
+else
+    # New default behavior: preserve original host paths
+    CLAUDE_DIR="$HOME/.claude"
+    WORKSPACE_DIR="$(pwd)"
+    CLAUDE_MOUNT="$HOME/.claude:$HOME/.claude:Z"
+    WORKSPACE_MOUNT="$(pwd):$(pwd):Z"
+fi
+
 podman run -it --rm \
     --user="$(id -u):$(id -g)"\
     --userns=keep-id \
     --name="$name" \
-    -v "$HOME/.claude:/claude:Z" \
+    -v "$CLAUDE_MOUNT" \
     -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
-    -v "$(pwd):/workspace:Z" \
-    -w /workspace \
-    -e CLAUDE_CONFIG_DIR=/claude \
+    -v "$WORKSPACE_MOUNT" \
+    -w "$WORKSPACE_DIR" \
+    -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
     "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \

@@ -63,7 +63,18 @@ echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo
     echo "Setup complete! Container image is ready."
-    echo "Run manually with:"
+    echo "Run manually with preserved host paths (default):"
+    echo "  podman run -it --rm --userns=keep-id \\"
+    echo "    -v ~/.claude:~/.claude:Z \\"
+    echo "    -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \\"
+    echo "    -v \"\$(pwd):\$(pwd):Z\" \\"
+    echo "    -w \"\$(pwd)\" \\"
+    echo "    -e CLAUDE_CONFIG_DIR=~/.claude \\"
+    echo "    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \\"
+    echo "    $IMAGE_NAME \\"
+    echo "    claude --dangerously-skip-permissions"
+    echo
+    echo "Or with anonymized paths (/claude, /workspace):"
     echo "  podman run -it --rm --userns=keep-id \\"
     echo "    -v ~/.claude:/claude:Z \\"
     echo "    -v ~/.gitconfig:/tmp/.gitconfig:ro,Z \\"
@@ -107,6 +118,10 @@ echo "To start using YOLO mode:"
 echo "  1. Make sure ~/.local/bin is in your PATH (restart shell if needed)"
 echo "  2. Navigate to any project directory"
 echo "  3. Run: yolo"
+echo
+echo "By default, yolo preserves original host paths for session compatibility."
+echo "Use --global-claude flag for anonymized paths (/claude, /workspace):"
+echo "  yolo --global-claude"
 echo
 echo "Pass extra podman options before -- and claude arguments after:"
 echo "  yolo -v /host:/container --env FOO=bar -- \"help with this code\""
