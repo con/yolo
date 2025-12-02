@@ -32,18 +32,22 @@ fi
 # all those podman containers
 name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" )
 
+CLAUDE_HOME_DIR="$HOME/.claude"
+# must exist but might not if first start on that box
+mkdir -p "$CLAUDE_HOME_DIR"
+
 # Determine paths based on --anonymized-paths flag
 if [ "$USE_ANONYMIZED_PATHS" -eq 1 ]; then
     # Old behavior: use anonymized paths
     CLAUDE_DIR="/claude"
     WORKSPACE_DIR="/workspace"
-    CLAUDE_MOUNT="$HOME/.claude:/claude:Z"
+    CLAUDE_MOUNT="$CLAUDE_HOME_DIR:/claude:Z"
     WORKSPACE_MOUNT="$(pwd):/workspace:Z"
 else
     # New default behavior: preserve original host paths
-    CLAUDE_DIR="$HOME/.claude"
+    CLAUDE_DIR="$CLAUDE_HOME_DIR"
     WORKSPACE_DIR="$(pwd)"
-    CLAUDE_MOUNT="$HOME/.claude:$HOME/.claude:Z"
+    CLAUDE_MOUNT="$CLAUDE_HOME_DIR:$CLAUDE_HOME_DIR:Z"
     WORKSPACE_MOUNT="$(pwd):$(pwd):Z"
 fi
 
