@@ -4,22 +4,42 @@
 set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths flag
+# Also check for --anonymized-paths and --entrypoint flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
 USE_ANONYMIZED_PATHS=0
+ENTRYPOINT="claude"
 
-for arg in "$@"; do
-    if [ "$arg" = "--anonymized-paths" ]; then
-        USE_ANONYMIZED_PATHS=1
-    elif [ "$found_separator" -eq 0 ] && [ "$arg" = "--" ]; then
-        found_separator=1
-    elif [ "$found_separator" -eq 1 ]; then
-        CLAUDE_ARGS+=("$arg")
-    else
-        PODMAN_ARGS+=("$arg")
-    fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --entrypoint)
+            ENTRYPOINT="$2"
+            shift 2
+            ;;
+        --entrypoint=*)
+            ENTRYPOINT="${1#--entrypoint=}"
+            shift
+            ;;
+        --anonymized-paths)
+            USE_ANONYMIZED_PATHS=1
+            shift
+            ;;
+        --)
+            shift
+            found_separator=1
+            CLAUDE_ARGS=("$@")
+            break
+            ;;
+        *)
+            if [ "$found_separator" -eq 1 ]; then
+                CLAUDE_ARGS+=("$1")
+            else
+                PODMAN_ARGS+=("$1")
+            fi
+            shift
+            ;;
+    esac
 done
 
 if [ "$found_separator" = 0 ]; then
@@ -51,6 +71,15 @@ else
     WORKSPACE_MOUNT="$(pwd):$(pwd):Z"
 fi
 
+# Build the command to run inside the container
+if [ "$ENTRYPOINT" = "claude" ]; then
+    # Default: run claude with --dangerously-skip-permissions
+    CONTAINER_CMD=("claude" "--dangerously-skip-permissions" "${CLAUDE_ARGS[@]}")
+else
+    # Custom entrypoint: run as-is with any additional args
+    CONTAINER_CMD=("$ENTRYPOINT" "${CLAUDE_ARGS[@]}")
+fi
+
 podman run -it --rm \
     --user="$(id -u):$(id -g)"\
     --userns=keep-id \
@@ -63,4 +92,4 @@ podman run -it --rm \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
     "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \
-    claude --dangerously-skip-permissions "${CLAUDE_ARGS[@]}"
+    "${CONTAINER_CMD[@]}"
