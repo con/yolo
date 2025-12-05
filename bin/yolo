@@ -36,6 +36,40 @@ CLAUDE_HOME_DIR="$HOME/.claude"
 # must exist but might not if first start on that box
 mkdir -p "$CLAUDE_HOME_DIR"
 
+# Detect if we're in a git worktree and find the original repo
+WORKTREE_MOUNTS=()
+gitdir_path=""
+dot_git="$(pwd)/.git"
+
+if [ -L "$dot_git" ]; then
+    # .git is a symlink - resolve it to get the gitdir path
+    gitdir_path=$(realpath "$dot_git" 2>/dev/null)
+elif [ -f "$dot_git" ]; then
+    # .git is a file, likely a worktree - read the gitdir path
+    gitdir_line=$(cat "$dot_git")
+    if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
+        gitdir_path="${BASH_REMATCH[1]}"
+        # Resolve to absolute path if relative
+        if [[ "$gitdir_path" != /* ]]; then
+            gitdir_path="$(pwd)/$gitdir_path"
+        fi
+        gitdir_path=$(realpath "$gitdir_path" 2>/dev/null || echo "$gitdir_path")
+    fi
+fi
+
+if [ -n "$gitdir_path" ]; then
+    # gitdir_path is typically /path/to/original/repo/.git/worktrees/<name>
+    # We need to find the original repo's .git directory
+    if [[ "$gitdir_path" =~ ^(.+/\.git)/worktrees/ ]]; then
+        original_git_dir="${BASH_REMATCH[1]}"
+        original_repo_dir=$(dirname "$original_git_dir")
+        # Only add if it's different from our current workspace
+        if [ "$original_repo_dir" != "$(pwd)" ]; then
+            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+        fi
+    fi
+fi
+
 # Determine paths based on --anonymized-paths flag
 if [ "$USE_ANONYMIZED_PATHS" -eq 1 ]; then
     # Old behavior: use anonymized paths
@@ -58,6 +92,7 @@ podman run -it --rm \
     -v "$CLAUDE_MOUNT" \
     -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
     -v "$WORKSPACE_MOUNT" \
+    "${WORKTREE_MOUNTS[@]}" \
     -w "$WORKSPACE_DIR" \
     -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
