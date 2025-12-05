@@ -88,4 +88,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Add uv to PATH for this build
 ENV PATH="/home/node/.local/bin:$PATH"
 
+# Install git-annex
+RUN uv tool install git-annex && \
+  uv cache clean
+
 CMD ["claude"]
