@@ -29,6 +29,31 @@ If you prefer the old behavior with anonymized paths (`/claude` and `/workspace`
 yolo --anonymized-paths
 ```
 
+### Git Worktree Support
+
+When running in a git worktree, `yolo` can detect and optionally bind mount the original repository. This allows Claude to access git objects and perform operations like commit and fetch. Control this behavior with the `--worktree` option:
+
+- `--worktree=ask` (default): Prompts whether to bind mount the original repo
+- `--worktree=bind`: Automatically bind mounts the original repo
+- `--worktree=ok`: Skip bind mounting without error
+- `--worktree=error`: Exit with error if running in a worktree
+
+```bash
+# Prompt for bind mount decision (default)
+yolo
+
+# Always bind mount in worktrees
+yolo --worktree=bind
+
+# Never bind mount, run without error
+yolo --worktree=ok
+
+# Disallow running in worktrees
+yolo --worktree=error
+```
+
+**Security note**: Bind mounting the original repo exposes more files and allows modifications. The prompt helps prevent unintended access.
+
 > **TODO**: Add curl-based one-liner setup once this PR is merged
 
 ## First-Time Login

@@ -4,15 +4,24 @@
 set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths flag
+# Also check for --anonymized-paths and --worktree flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
 USE_ANONYMIZED_PATHS=0
+WORKTREE_MODE="ask"
 
 for arg in "$@"; do
     if [ "$arg" = "--anonymized-paths" ]; then
         USE_ANONYMIZED_PATHS=1
+    elif [[ "$arg" =~ ^--worktree=(.+)$ ]]; then
+        WORKTREE_MODE="${BASH_REMATCH[1]}"
+        # Validate worktree mode
+        if [[ ! "$WORKTREE_MODE" =~ ^(ask|bind|ok|error)$ ]]; then
+            echo "Error: Invalid --worktree value: $WORKTREE_MODE" >&2
+            echo "Valid values are: ask, bind, ok, error" >&2
+            exit 1
+        fi
     elif [ "$found_separator" -eq 0 ] && [ "$arg" = "--" ]; then
         found_separator=1
     elif [ "$found_separator" -eq 1 ]; then
@@ -40,6 +49,8 @@ mkdir -p "$CLAUDE_HOME_DIR"
 WORKTREE_MOUNTS=()
 gitdir_path=""
 dot_git="$(pwd)/.git"
+is_worktree=0
+original_repo_dir=""
 
 if [ -L "$dot_git" ]; then
     # .git is a symlink - resolve it to get the gitdir path
@@ -63,11 +74,37 @@ if [ -n "$gitdir_path" ]; then
     if [[ "$gitdir_path" =~ ^(.+/\.git)/worktrees/ ]]; then
         original_git_dir="${BASH_REMATCH[1]}"
         original_repo_dir=$(dirname "$original_git_dir")
-        # Only add if it's different from our current workspace
+        # Only consider it a worktree if it's different from our current workspace
         if [ "$original_repo_dir" != "$(pwd)" ]; then
-            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+            is_worktree=1
         fi
     fi
+fi
+
+# Handle worktree based on the mode
+if [ "$is_worktree" -eq 1 ]; then
+    case "$WORKTREE_MODE" in
+        error)
+            echo "Error: Running in a git worktree is not allowed with --worktree=error" >&2
+            echo "Original repo: $original_repo_dir" >&2
+            exit 1
+            ;;
+        bind)
+            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+            ;;
+        ok)
+            # Do nothing - skip bind mount
+            ;;
+        ask)
+            echo "Detected git worktree. Original repository: $original_repo_dir" >&2
+            echo "Bind mounting the original repo allows git operations but may expose unintended files." >&2
+            read -p "Bind mount original repository? [y/N] " -n 1 -r >&2
+            echo >&2
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+            fi
+            ;;
+    esac
 fi
 
 # Determine paths based on --anonymized-paths flag
