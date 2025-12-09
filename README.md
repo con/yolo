@@ -35,7 +35,7 @@ When running in a git worktree, `yolo` can detect and optionally bind mount the 
 
 - `--worktree=ask` (default): Prompts whether to bind mount the original repo
 - `--worktree=bind`: Automatically bind mounts the original repo
-- `--worktree=ok`: Skip bind mounting without error
+- `--worktree=ok`: Skip bind mounting and continue normally
 - `--worktree=error`: Exit with error if running in a worktree
 
 ```bash
