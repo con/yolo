@@ -25,9 +25,9 @@ while [ $# -gt 0 ]; do
         --worktree=*)
             WORKTREE_MODE="${1#--worktree=}"
             # Validate worktree mode
-            if [[ ! "$WORKTREE_MODE" =~ ^(ask|bind|ok|error)$ ]]; then
+            if [[ ! "$WORKTREE_MODE" =~ ^(ask|bind|skip|error)$ ]]; then
                 echo "Error: Invalid --worktree value: $WORKTREE_MODE" >&2
-                echo "Valid values are: ask, bind, ok, error" >&2
+                echo "Valid values are: ask, bind, skip, error" >&2
                 exit 1
             fi
             shift
@@ -114,7 +114,7 @@ if [ "$is_worktree" -eq 1 ]; then
         bind)
             WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
             ;;
-        ok)
+        skip)
             # Do nothing - skip bind mount
             ;;
         ask)
