@@ -4,12 +4,13 @@
 set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths and --entrypoint flags
+# Also check for --anonymized-paths, --entrypoint, and --worktree flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
 USE_ANONYMIZED_PATHS=0
 ENTRYPOINT="claude"
+WORKTREE_MODE="ask"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -19,6 +20,16 @@ while [ $# -gt 0 ]; do
             ;;
         --entrypoint=*)
             ENTRYPOINT="${1#--entrypoint=}"
+            shift
+            ;;
+        --worktree=*)
+            WORKTREE_MODE="${1#--worktree=}"
+            # Validate worktree mode
+            if [[ ! "$WORKTREE_MODE" =~ ^(ask|bind|skip|error)$ ]]; then
+                echo "Error: Invalid --worktree value: $WORKTREE_MODE" >&2
+                echo "Valid values are: ask, bind, skip, error" >&2
+                exit 1
+            fi
             shift
             ;;
         --anonymized-paths)
@@ -56,6 +67,68 @@ CLAUDE_HOME_DIR="$HOME/.claude"
 # must exist but might not if first start on that box
 mkdir -p "$CLAUDE_HOME_DIR"
 
+# Detect if we're in a git worktree and find the original repo
+WORKTREE_MOUNTS=()
+gitdir_path=""
+dot_git="$(pwd)/.git"
+is_worktree=0
+original_repo_dir=""
+
+if [ -L "$dot_git" ]; then
+    # .git is a symlink - resolve it to get the gitdir path
+    gitdir_path=$(realpath "$dot_git" 2>/dev/null)
+elif [ -f "$dot_git" ]; then
+    # .git is a file, likely a worktree - read the gitdir path
+    gitdir_line=$(cat "$dot_git")
+    if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
+        gitdir_path="${BASH_REMATCH[1]}"
+        # Resolve to absolute path if relative
+        if [[ "$gitdir_path" != /* ]]; then
+            gitdir_path="$(pwd)/$gitdir_path"
+        fi
+        gitdir_path=$(realpath "$gitdir_path" 2>/dev/null || echo "$gitdir_path")
+    fi
+fi
+
+if [ -n "$gitdir_path" ]; then
+    # gitdir_path is typically /path/to/original/repo/.git/worktrees/<name>
+    # We need to find the original repo's .git directory
+    if [[ "$gitdir_path" =~ ^(.+/\.git)/worktrees/ ]]; then
+        original_git_dir="${BASH_REMATCH[1]}"
+        original_repo_dir=$(dirname "$original_git_dir")
+        # Only consider it a worktree if it's different from our current workspace
+        if [ "$original_repo_dir" != "$(pwd)" ]; then
+            is_worktree=1
+        fi
+    fi
+fi
+
+# Handle worktree based on the mode
+if [ "$is_worktree" -eq 1 ]; then
+    case "$WORKTREE_MODE" in
+        error)
+            echo "Error: Running in a git worktree is not allowed with --worktree=error" >&2
+            echo "Original repo: $original_repo_dir" >&2
+            exit 1
+            ;;
+        bind)
+            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+            ;;
+        skip)
+            # Do nothing - skip bind mount
+            ;;
+        ask)
+            echo "Detected git worktree. Original repository: $original_repo_dir" >&2
+            echo "Bind mounting the original repo allows git operations but may expose unintended files." >&2
+            read -p "Bind mount original repository? [y/N] " -n 1 -r >&2
+            echo >&2
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+            fi
+            ;;
+    esac
+fi
+
 # Determine paths based on --anonymized-paths flag
 if [ "$USE_ANONYMIZED_PATHS" -eq 1 ]; then
     # Old behavior: use anonymized paths
@@ -87,6 +160,7 @@ podman run -it --rm \
     -v "$CLAUDE_MOUNT" \
     -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
     -v "$WORKSPACE_MOUNT" \
+    "${WORKTREE_MOUNTS[@]}" \
     -w "$WORKSPACE_DIR" \
     -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
