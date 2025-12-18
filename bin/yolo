@@ -153,7 +153,7 @@ else
     CONTAINER_CMD=("$ENTRYPOINT" "${CLAUDE_ARGS[@]}")
 fi
 
-podman run -it --rm \
+podman run --log-driver=none -it --rm \
     --user="$(id -u):$(id -g)"\
     --userns=keep-id \
     --name="$name" \
