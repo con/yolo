@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on setup-yolo.sh
+        run: shellcheck setup-yolo.sh
+
+      - name: Run shellcheck on bin/yolo
+        run: shellcheck bin/yolo
+
+  bats-tests:
+    name: BATS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install BATS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Run BATS tests for setup-yolo.sh
+        run: bats tests/setup-yolo.bats
+
+      - name: Run BATS tests for bin/yolo
+        run: bats tests/yolo.bats
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Docker build
+        run: |
+          TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "UTC")
+          docker build --build-arg "TZ=$TZ" -t con-bomination-claude-code-test images/
+
+      - name: Verify Docker image
+        run: |
+          docker images | grep con-bomination-claude-code-test
+          docker run --rm con-bomination-claude-code-test claude --version
+
+  tox:
+    name: Tox Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox tox-gh-actions
+
+      - name: Install shellcheck and BATS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck bats
+
+      - name: Run tox
+        run: tox -e shellcheck,bats
+
+  all-tests:
+    name: All Tests Passed
+    needs: [shellcheck, bats-tests, docker-build, tox]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.shellcheck.result }}" != "success" ] || \
+             [ "${{ needs.bats-tests.result }}" != "success" ] || \
+             [ "${{ needs.docker-build.result }}" != "success" ] || \
+             [ "${{ needs.tox.result }}" != "success" ]; then
+            echo "One or more test jobs failed"
+            exit 1
+          fi
+          echo "All tests passed successfully!"
