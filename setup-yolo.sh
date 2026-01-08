@@ -8,6 +8,7 @@ DOCKERFILE_DIR="$SCRIPT_DIR/images"
 # Default options
 BUILD_MODE="auto"
 INSTALL_MODE="auto"
+EXTRA_PACKAGES=""
 
 show_help() {
     cat << EOF
@@ -25,6 +26,8 @@ OPTIONS:
                             auto - install if missing or prompt if exists and differs
                             yes  - always install/overwrite without prompting
                             no   - skip installation
+    --packages=PKGS         Extra apt packages to install in the container image
+                            (comma or space-separated, requires rebuild)
 
 EXAMPLES:
     # Interactive setup (default)
@@ -41,6 +44,9 @@ EXAMPLES:
 
     # Build if needed, auto-install intelligently
     ./setup-yolo.sh --build=auto --install=auto
+
+    # Build with extra packages (e.g., ffmpeg, imagemagick)
+    ./setup-yolo.sh --build=yes --packages="ffmpeg,imagemagick"
 
 EOF
     exit 0
@@ -66,6 +72,12 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: --install must be one of: auto, yes, no"
                 exit 1
             fi
+            shift
+            ;;
+        --packages=*)
+            # Convert commas to spaces and store
+            EXTRA_PACKAGES="${1#*=}"
+            EXTRA_PACKAGES="${EXTRA_PACKAGES//,/ }"
             shift
             ;;
         *)
@@ -98,11 +110,18 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     else
         echo "Building container image '$IMAGE_NAME'..."
     fi
+    if [ -n "$EXTRA_PACKAGES" ]; then
+        echo "Extra packages: $EXTRA_PACKAGES"
+    fi
     echo "This may take a few minutes..."
     echo
 
     TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "UTC")
-    podman build --build-arg "TZ=$TZ" -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
+    BUILD_ARGS=(--build-arg "TZ=$TZ")
+    if [ -n "$EXTRA_PACKAGES" ]; then
+        BUILD_ARGS+=(--build-arg "EXTRA_PACKAGES=$EXTRA_PACKAGES")
+    fi
+    podman build "${BUILD_ARGS[@]}" -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
 
     echo
     echo "✓ Container image built successfully"
@@ -243,6 +262,11 @@ if [ "$SHOULD_INSTALL" = true ]; then
     echo "  yolo -v /host:/container --env FOO=bar -- \"help with this code\""
     echo "  yolo -v /data:/data --  # extra mounts only"
     echo "  yolo -- \"process files\"  # claude args only"
+    echo
+    echo "For NVIDIA GPU access (requires nvidia-container-toolkit on host):"
+    echo "  yolo --nvidia"
+    echo
+    echo "Run 'yolo --help' for all available options."
     echo
     echo "The containerized Claude Code will start with full permissions"
     echo "in the current directory, with credentials and git access configured."

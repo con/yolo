@@ -6,6 +6,9 @@ ENV TZ="$TZ"
 
 ARG CLAUDE_CODE_VERSION=latest
 
+# Extra packages to install (space-separated list)
+ARG EXTRA_PACKAGES=""
+
 # Install basic development tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
@@ -25,6 +28,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   vim \
   shellcheck \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install extra packages if specified
+RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
