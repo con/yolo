@@ -31,6 +31,7 @@ OPTIONS:
                             (comma or space-separated, requires rebuild)
     --extras=EXTRAS         Predefined extras to include (comma-separated):
                             cuda       - NVIDIA CUDA toolkit for building GPU extensions
+                                         (experimental)
                             playwright - Playwright with Chromium for browser automation
                             all        - Enable all extras
 
