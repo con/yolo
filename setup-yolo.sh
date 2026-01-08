@@ -9,6 +9,7 @@ DOCKERFILE_DIR="$SCRIPT_DIR/images"
 BUILD_MODE="auto"
 INSTALL_MODE="auto"
 EXTRA_PACKAGES=""
+EXTRAS=""
 
 show_help() {
     cat << EOF
@@ -28,6 +29,10 @@ OPTIONS:
                             no   - skip installation
     --packages=PKGS         Extra apt packages to install in the container image
                             (comma or space-separated, requires rebuild)
+    --extras=EXTRAS         Predefined extras to include (comma-separated):
+                            cuda       - NVIDIA CUDA toolkit for building GPU extensions
+                            playwright - Playwright with Chromium for browser automation
+                            all        - Enable all extras
 
 EXAMPLES:
     # Interactive setup (default)
@@ -47,6 +52,15 @@ EXAMPLES:
 
     # Build with extra packages (e.g., ffmpeg, imagemagick)
     ./setup-yolo.sh --build=yes --packages="ffmpeg,imagemagick"
+
+    # Build with NVIDIA CUDA toolkit
+    ./setup-yolo.sh --build=yes --extras=cuda
+
+    # Build with Playwright browser automation
+    ./setup-yolo.sh --build=yes --extras=playwright
+
+    # Build with all extras
+    ./setup-yolo.sh --build=yes --extras=all
 
 EOF
     exit 0
@@ -78,6 +92,21 @@ while [[ $# -gt 0 ]]; do
             # Convert commas to spaces and store
             EXTRA_PACKAGES="${1#*=}"
             EXTRA_PACKAGES="${EXTRA_PACKAGES//,/ }"
+            shift
+            ;;
+        --extras=*)
+            EXTRAS="${1#*=}"
+            # Expand "all" to all available extras
+            if [[ "$EXTRAS" == "all" ]]; then
+                EXTRAS="cuda,playwright"
+            fi
+            # Validate extras
+            for extra in ${EXTRAS//,/ }; do
+                if [[ ! "$extra" =~ ^(cuda|playwright)$ ]]; then
+                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, all"
+                    exit 1
+                fi
+            done
             shift
             ;;
         *)
@@ -113,6 +142,9 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     if [ -n "$EXTRA_PACKAGES" ]; then
         echo "Extra packages: $EXTRA_PACKAGES"
     fi
+    if [ -n "$EXTRAS" ]; then
+        echo "Extras: $EXTRAS"
+    fi
     echo "This may take a few minutes..."
     echo
 
@@ -121,6 +153,10 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     if [ -n "$EXTRA_PACKAGES" ]; then
         BUILD_ARGS+=(--build-arg "EXTRA_PACKAGES=$EXTRA_PACKAGES")
     fi
+    # Pass individual extras as build args
+    for extra in ${EXTRAS//,/ }; do
+        BUILD_ARGS+=(--build-arg "EXTRA_$(echo "$extra" | tr '[:lower:]' '[:upper:]')=1")
+    done
     podman build "${BUILD_ARGS[@]}" -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
 
     echo
