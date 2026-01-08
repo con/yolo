@@ -47,8 +47,10 @@ RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
 # NVIDIA CUDA toolkit for building CUDA extensions
 # Runtime GPU access (nvidia-smi, drivers) is handled by CDI at container runtime
 # To use: run container with --device nvidia.com/gpu=all (yolo --nvidia)
+# Requires non-free and contrib apt components
 RUN if [ "$EXTRA_CUDA" = "1" ]; then \
-      apt-get update && apt-get install -y --no-install-recommends nvidia-cuda-toolkit \
+      sed -i 's/^Components: main$/Components: main contrib non-free/' /etc/apt/sources.list.d/debian.sources \
+      && apt-get update && apt-get install -y --no-install-recommends nvidia-cuda-toolkit \
       && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
