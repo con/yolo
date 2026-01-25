@@ -15,22 +15,27 @@ ARG EXTRA_PLAYWRIGHT=""
 
 # Install basic development tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  less \
-  git \
-  procps \
-  sudo \
-  fzf \
-  zsh \
-  man-db \
-  unzip \
-  gnupg2 \
-  gh \
-  iproute2 \
   dnsutils \
+  fzf \
+  gh \
+  git \
+  gnupg2 \
+  iproute2 \
   jq \
+  less \
+  man-db \
+  mc \
+  moreutils \
   nano \
-  vim \
+  ncdu \
+  parallel \
+  procps \
   shellcheck \
+  sudo \
+  tree \
+  unzip \
+  vim \
+  zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install extra packages if specified
