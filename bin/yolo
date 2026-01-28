@@ -3,17 +3,57 @@
 
 set -e
 
+show_help() {
+    cat << 'EOF'
+Usage: yolo [OPTIONS] [-- CLAUDE_ARGS...]
+
+Run Claude Code in YOLO mode (auto-approve all actions) inside a container.
+
+OPTIONS:
+    -h, --help          Show this help message
+    --anonymized-paths  Use anonymized paths (/claude, /workspace) instead of
+                        preserving host paths
+    --entrypoint=CMD    Override the container entrypoint (default: claude)
+    --worktree=MODE     Git worktree handling: ask, bind, skip, error
+                        (default: ask)
+    --nvidia            Enable NVIDIA GPU passthrough via CDI
+                        Requires nvidia-container-toolkit on host
+
+    Additional podman options can be passed before --
+
+EXAMPLES:
+    yolo                              # Basic usage
+    yolo --nvidia                     # With GPU support
+    yolo -v /data:/data               # Extra mount
+    yolo -- "help with this code"     # Pass args to claude
+    yolo --nvidia -- --resume         # GPU + claude args
+
+NVIDIA GPU SETUP:
+    The --nvidia flag uses CDI (Container Device Interface) for GPU access.
+    Prerequisites:
+    1. Install nvidia-container-toolkit on your host
+    2. Generate CDI spec: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+    3. Use: yolo --nvidia
+
+EOF
+    exit 0
+}
+
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths, --entrypoint, and --worktree flags
+# Also check for --anonymized-paths, --entrypoint, --worktree, and --nvidia flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
 USE_ANONYMIZED_PATHS=0
 ENTRYPOINT="claude"
 WORKTREE_MODE="ask"
+USE_NVIDIA=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        -h|--help)
+            show_help
+            ;;
         --entrypoint)
             ENTRYPOINT="$2"
             shift 2
@@ -34,6 +74,10 @@ while [ $# -gt 0 ]; do
             ;;
         --anonymized-paths)
             USE_ANONYMIZED_PATHS=1
+            shift
+            ;;
+        --nvidia)
+            USE_NVIDIA=1
             shift
             ;;
         --)
@@ -154,6 +198,21 @@ else
     CONTAINER_CMD=("$ENTRYPOINT" "${CLAUDE_ARGS[@]}")
 fi
 
+# NVIDIA GPU support via CDI (Container Device Interface)
+# Requires nvidia-container-toolkit on host with CDI spec generated
+NVIDIA_ARGS=()
+if [ "$USE_NVIDIA" -eq 1 ]; then
+    # Check if CDI spec exists
+    if [ ! -f /etc/cdi/nvidia.yaml ] && [ ! -f /var/run/cdi/nvidia.yaml ]; then
+        echo "Warning: NVIDIA CDI spec not found at /etc/cdi/nvidia.yaml or /var/run/cdi/nvidia.yaml" >&2
+        echo "GPU passthrough may not work. Install nvidia-container-toolkit and run:" >&2
+        echo "  sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml" >&2
+        echo >&2
+    fi
+    NVIDIA_ARGS+=(--device "nvidia.com/gpu=all")
+    NVIDIA_ARGS+=(--security-opt "label=disable")
+fi
+
 podman run --log-driver=none -it --rm \
     --user="$(id -u):$(id -g)"\
     --userns=keep-id \
@@ -166,6 +225,7 @@ podman run --log-driver=none -it --rm \
     -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
     -e CLAUDE_CODE_OAUTH_TOKEN \
+    "${NVIDIA_ARGS[@]}" \
     "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \
     "${CONTAINER_CMD[@]}"
