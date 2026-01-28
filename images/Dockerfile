@@ -6,25 +6,58 @@ ENV TZ="$TZ"
 
 ARG CLAUDE_CODE_VERSION=latest
 
+# Extra packages to install (space-separated list)
+ARG EXTRA_PACKAGES=""
+
+# Extras (set to "1" to enable)
+ARG EXTRA_CUDA=""
+ARG EXTRA_PLAYWRIGHT=""
+
 # Install basic development tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  less \
-  git \
-  procps \
-  sudo \
-  fzf \
-  zsh \
-  man-db \
-  unzip \
-  gnupg2 \
-  gh \
-  iproute2 \
   dnsutils \
+  fzf \
+  gh \
+  git \
+  gnupg2 \
+  iproute2 \
   jq \
+  less \
+  man-db \
+  mc \
+  moreutils \
   nano \
-  vim \
+  ncdu \
+  parallel \
+  procps \
   shellcheck \
+  sudo \
+  tree \
+  unzip \
+  vim \
+  zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install extra packages if specified
+RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Install Playwright system dependencies if enabled (must be done as root)
+RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
+      npx playwright install-deps chromium; \
+    fi
+
+# NVIDIA CUDA toolkit for building CUDA extensions
+# Runtime GPU access (nvidia-smi, drivers) is handled by CDI at container runtime
+# To use: run container with --device nvidia.com/gpu=all (yolo --nvidia)
+# Requires non-free and contrib apt components
+RUN if [ "$EXTRA_CUDA" = "1" ]; then \
+      sed -i 's/^Components: main$/Components: main contrib non-free/' /etc/apt/sources.list.d/debian.sources \
+      && apt-get update && apt-get install -y --no-install-recommends nvidia-cuda-toolkit \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
@@ -56,6 +89,9 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # Set up non-root user
 USER node
 
+# Re-declare ARGs needed after USER switch (ARG values don't persist)
+ARG EXTRA_PLAYWRIGHT
+
 # Install global packages
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
 ENV PATH=$PATH:/usr/local/share/npm-global/bin
@@ -79,6 +115,12 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
+
+# Install Playwright and Chromium browser if enabled
+RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
+      npm install -g playwright && \
+      npx playwright install chromium; \
+    fi
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
