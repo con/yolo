@@ -105,8 +105,8 @@ fi
 
 # Give a meaningful name based on PWD and the PID to help identifying
 # all those podman containers
-# Note: leading underscores are stripped as they're not allowed in container names
-name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" -e "s,^_*,," )
+# Note: leading periods and underscores are stripped as they're not allowed in container names
+name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" -e "s,^[._]*,," )
 
 CLAUDE_HOME_DIR="$HOME/.claude"
 # must exist but might not if first start on that box
