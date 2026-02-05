@@ -223,15 +223,17 @@ done
 
 # Merge config arrays with command line args
 # Config values come first, then CLI args (CLI takes precedence for duplicates)
+# We need to handle this carefully because of the -- separator logic
+CONFIG_PODMAN_ARGS_TO_ADD=()
 if [ "$USE_CONFIG" -eq 1 ]; then
-    # Add volume mounts from config
+    # Prepare volume mounts from config
     for volume in "${CONFIG_PODMAN_VOLUMES[@]}"; do
-        PODMAN_ARGS=("-v" "$volume" "${PODMAN_ARGS[@]}")
+        CONFIG_PODMAN_ARGS_TO_ADD+=("-v" "$volume")
     done
     
-    # Add podman options from config
+    # Prepare podman options from config
     for option in "${CONFIG_PODMAN_OPTIONS[@]}"; do
-        PODMAN_ARGS=("$option" "${PODMAN_ARGS[@]}")
+        CONFIG_PODMAN_ARGS_TO_ADD+=("$option")
     done
     
     # Add claude args from config (these go at the end, before CLI claude args)
@@ -241,9 +243,15 @@ if [ "$USE_CONFIG" -eq 1 ]; then
 fi
 
 if [ "$found_separator" = 0 ]; then
-    # so we did not find any -- everything is actually CLAUDE_ARGS
-    CLAUDE_ARGS=("${PODMAN_ARGS[@]}")
+    # so we did not find any -- everything from PODMAN_ARGS is actually CLAUDE_ARGS
+    # Append them to any existing CLAUDE_ARGS (from config)
+    CLAUDE_ARGS=("${CLAUDE_ARGS[@]}" "${PODMAN_ARGS[@]}")
     PODMAN_ARGS=()
+fi
+
+# Now add config podman args (after the separator logic)
+if [ "$USE_CONFIG" -eq 1 ] && [ ${#CONFIG_PODMAN_ARGS_TO_ADD[@]} -gt 0 ]; then
+    PODMAN_ARGS=("${CONFIG_PODMAN_ARGS_TO_ADD[@]}" "${PODMAN_ARGS[@]}")
 fi
 
 # Give a meaningful name based on PWD and the PID to help identifying
