@@ -1,0 +1,73 @@
+# YOLO Project Configuration Example
+# 
+# This file demonstrates how to configure per-project settings for the yolo command.
+# 
+# Copy this file to .git/yolo/config in your project to use it.
+# The .git/yolo directory is safe from 'git clean' and works with git worktrees.
+
+# ============================================================================
+# PODMAN VOLUME MOUNTS
+# ============================================================================
+# Mount additional directories into the container.
+# Use the same syntax as 'podman run -v HOST_PATH:CONTAINER_PATH[:OPTIONS]'
+# 
+# Common use cases:
+# - Mount a shared data directory
+# - Mount additional project directories
+# - Mount configuration files
+#
+# Examples:
+# PODMAN_VOLUME=~/projects:/projects:Z
+# PODMAN_VOLUME=~/data:/data:ro,Z
+# PODMAN_VOLUME=/mnt/storage:/storage:Z
+
+# ============================================================================
+# PODMAN OPTIONS
+# ============================================================================
+# Additional podman options passed to 'podman run'
+# You can specify environment variables, network settings, etc.
+#
+# Examples:
+# PODMAN_OPTION=--env=DEBUG=1
+# PODMAN_OPTION=--env=MY_API_KEY=secret
+# PODMAN_OPTION=--network=host
+# PODMAN_OPTION=--cpus=2
+# PODMAN_OPTION=--memory=4g
+
+# ============================================================================
+# CLAUDE ARGUMENTS
+# ============================================================================
+# Arguments passed to the claude command inside the container
+# These are passed after --dangerously-skip-permissions
+#
+# Examples:
+# CLAUDE_ARG=--model=claude-3-opus-20240229
+# CLAUDE_ARG=--verbose
+# CLAUDE_ARG=--max-tokens=4096
+
+# ============================================================================
+# DEFAULT FLAGS
+# ============================================================================
+# Set default behavior for yolo flags
+# Command line options will override these settings
+
+# Use anonymized container paths (/claude, /workspace) instead of host paths
+# ANONYMIZED_PATHS=0
+
+# Enable NVIDIA GPU passthrough by default
+# Requires nvidia-container-toolkit on host
+# USE_NVIDIA=0
+
+# Git worktree handling mode
+# Options: ask (default), bind, skip, error
+# WORKTREE_MODE=ask
+
+# ============================================================================
+# NOTES
+# ============================================================================
+# - Lines starting with # are comments
+# - Empty lines are ignored
+# - Values can use ~ for home directory (will be expanded to $HOME)
+# - You can specify the same key multiple times (e.g., PODMAN_VOLUME)
+# - Command line arguments always take precedence over config file
+# - Use --no-config flag to ignore the config file entirely

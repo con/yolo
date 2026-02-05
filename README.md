@@ -54,6 +54,46 @@ yolo --worktree=error
 
 **Security note**: Bind mounting the original repo exposes more files and allows modifications. The prompt helps prevent unintended access.
 
+### Project Configuration
+
+You can create a per-project configuration file to avoid repeating command line options. Create a file at `.git/yolo/config` in your project:
+
+```bash
+# Create the directory
+mkdir -p .git/yolo
+
+# Copy the example configuration
+cp config.example .git/yolo/config
+
+# Edit with your preferences
+nano .git/yolo/config
+```
+
+The configuration file is stored in `.git/yolo/` which means:
+- It won't be tracked by git
+- It won't be destroyed by `git clean`
+- It works correctly with git worktrees (they all reference the same `.git` directory)
+
+**Example configuration** (`.git/yolo/config`):
+```bash
+# Mount additional directories
+PODMAN_VOLUME=~/projects:/projects:Z
+PODMAN_VOLUME=~/data:/data:ro,Z
+
+# Set environment variables
+PODMAN_OPTION=--env=DEBUG=1
+
+# Pass arguments to claude
+CLAUDE_ARG=--model=claude-3-opus-20240229
+
+# Enable GPU by default
+USE_NVIDIA=1
+```
+
+Command line options always override configuration file settings. Use `--no-config` to ignore the configuration file entirely.
+
+See `config.example` for a complete configuration template with detailed comments.
+
 > **TODO**: Add curl-based one-liner setup once this PR is merged
 
 ## First-Time Login

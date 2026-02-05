@@ -18,6 +18,7 @@ OPTIONS:
                         (default: ask)
     --nvidia            Enable NVIDIA GPU passthrough via CDI
                         Requires nvidia-container-toolkit on host
+    --no-config         Ignore project configuration file
 
     Additional podman options can be passed before --
 
@@ -35,19 +36,138 @@ NVIDIA GPU SETUP:
     2. Generate CDI spec: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
     3. Use: yolo --nvidia
 
+PROJECT CONFIGURATION:
+    You can create a configuration file at .git/yolo/config to set default
+    options for the project. This file supports:
+    - PODMAN_VOLUME: Volume mounts (can be specified multiple times)
+    - PODMAN_OPTION: Additional podman options (can be specified multiple times)
+    - CLAUDE_ARG: Arguments for claude (can be specified multiple times)
+    - ANONYMIZED_PATHS: Set to 1 to use anonymized paths by default
+    - USE_NVIDIA: Set to 1 to enable NVIDIA GPU by default
+    - WORKTREE_MODE: Set default worktree mode (ask/bind/skip/error)
+
+    See .git/yolo/config.example for a complete example.
+    Command line options always override config file settings.
+
 EOF
     exit 0
 }
 
+# Function to find the .git directory
+find_git_dir() {
+    local current_dir="$(pwd)"
+    
+    while [ "$current_dir" != "/" ]; do
+        if [ -d "$current_dir/.git" ]; then
+            echo "$current_dir/.git"
+            return 0
+        elif [ -f "$current_dir/.git" ]; then
+            # .git is a file (worktree), read gitdir path
+            local gitdir_line=$(cat "$current_dir/.git")
+            if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
+                local gitdir_path="${BASH_REMATCH[1]}"
+                # Resolve to absolute path if relative
+                if [[ "$gitdir_path" != /* ]]; then
+                    gitdir_path="$current_dir/$gitdir_path"
+                fi
+                # For worktrees, gitdir points to .git/worktrees/<name>
+                # We want the main .git directory
+                if [[ "$gitdir_path" =~ ^(.+/\.git)/worktrees/ ]]; then
+                    echo "${BASH_REMATCH[1]}"
+                    return 0
+                fi
+            fi
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+    
+    return 1
+}
+
+# Function to load configuration from .git/yolo/config
+load_config() {
+    local config_file="$1"
+    
+    if [ ! -f "$config_file" ]; then
+        return 0
+    fi
+    
+    # Read config file line by line
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        
+        # Trim whitespace
+        key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # Skip if value is empty or commented out
+        [[ -z "$value" ]] && continue
+        
+        # Expand ~ in value to $HOME
+        value="${value/#\~/$HOME}"
+        
+        case "$key" in
+            PODMAN_VOLUME)
+                CONFIG_PODMAN_VOLUMES+=("$value")
+                ;;
+            PODMAN_OPTION)
+                CONFIG_PODMAN_OPTIONS+=("$value")
+                ;;
+            CLAUDE_ARG)
+                CONFIG_CLAUDE_ARGS+=("$value")
+                ;;
+            ANONYMIZED_PATHS)
+                CONFIG_ANONYMIZED_PATHS="$value"
+                ;;
+            USE_NVIDIA)
+                CONFIG_USE_NVIDIA="$value"
+                ;;
+            WORKTREE_MODE)
+                CONFIG_WORKTREE_MODE="$value"
+                ;;
+        esac
+    done < "$config_file"
+}
+
+# Initialize config arrays
+CONFIG_PODMAN_VOLUMES=()
+CONFIG_PODMAN_OPTIONS=()
+CONFIG_CLAUDE_ARGS=()
+CONFIG_ANONYMIZED_PATHS=""
+CONFIG_USE_NVIDIA=""
+CONFIG_WORKTREE_MODE=""
+
+# Load configuration if available (unless --no-config is passed)
+# We need to do a quick check for --no-config before loading
+USE_CONFIG=1
+for arg in "$@"; do
+    if [ "$arg" = "--no-config" ]; then
+        USE_CONFIG=0
+        break
+    fi
+done
+
+if [ "$USE_CONFIG" -eq 1 ]; then
+    GIT_DIR=$(find_git_dir)
+    if [ -n "$GIT_DIR" ]; then
+        CONFIG_FILE="$GIT_DIR/yolo/config"
+        if [ -f "$CONFIG_FILE" ]; then
+            load_config "$CONFIG_FILE"
+        fi
+    fi
+fi
+
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths, --entrypoint, --worktree, and --nvidia flags
+# Also check for --anonymized-paths, --entrypoint, --worktree, --nvidia, and --no-config flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
-USE_ANONYMIZED_PATHS=0
+USE_ANONYMIZED_PATHS=${CONFIG_ANONYMIZED_PATHS:-0}
 ENTRYPOINT="claude"
-WORKTREE_MODE="ask"
-USE_NVIDIA=0
+WORKTREE_MODE=${CONFIG_WORKTREE_MODE:-ask}
+USE_NVIDIA=${CONFIG_USE_NVIDIA:-0}
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -80,6 +200,10 @@ while [ $# -gt 0 ]; do
             USE_NVIDIA=1
             shift
             ;;
+        --no-config)
+            # Already handled before config loading, just skip it here
+            shift
+            ;;
         --)
             shift
             found_separator=1
@@ -96,6 +220,25 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+# Merge config arrays with command line args
+# Config values come first, then CLI args (CLI takes precedence for duplicates)
+if [ "$USE_CONFIG" -eq 1 ]; then
+    # Add volume mounts from config
+    for volume in "${CONFIG_PODMAN_VOLUMES[@]}"; do
+        PODMAN_ARGS=("-v" "$volume" "${PODMAN_ARGS[@]}")
+    done
+    
+    # Add podman options from config
+    for option in "${CONFIG_PODMAN_OPTIONS[@]}"; do
+        PODMAN_ARGS=("$option" "${PODMAN_ARGS[@]}")
+    done
+    
+    # Add claude args from config (these go at the end, before CLI claude args)
+    if [ ${#CONFIG_CLAUDE_ARGS[@]} -gt 0 ]; then
+        CLAUDE_ARGS=("${CONFIG_CLAUDE_ARGS[@]}" "${CLAUDE_ARGS[@]}")
+    fi
+fi
 
 if [ "$found_separator" = 0 ]; then
     # so we did not find any -- everything is actually CLAUDE_ARGS
