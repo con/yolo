@@ -1,33 +1,80 @@
-# YOLO Project Configuration Example
-# 
-# This file demonstrates how to configure per-project settings for the yolo command.
-# 
-# Copy this file to .git/yolo/config in your project to use it.
+# YOLO Project Configuration
+# This file is sourced as a bash script by yolo
+# Location: .git/yolo/config
+#
 # The .git/yolo directory is safe from 'git clean' and works with git worktrees.
 
 # ============================================================================
-# PODMAN VOLUME MOUNTS
+# VOLUME MOUNTS
 # ============================================================================
-# Mount additional directories into the container.
-# Use the same syntax as 'podman run -v HOST_PATH:CONTAINER_PATH[:OPTIONS]'
+# Array of volumes to mount into the container
 # 
-# Common use cases:
-# - Mount a shared data directory
-# - Mount additional project directories
-# - Mount configuration files
+# Syntax options:
+#   "~/projects"              -> ~/projects:~/projects:Z (1-to-1 mount)
+#   "~/projects::ro"          -> ~/projects:~/projects:ro,Z (1-to-1 with options)
+#   "~/data:/data:Z"          -> ~/data:/data:Z (explicit mapping)
+#
+# The shorthand syntax makes it easy to mount directories at the same path
+# in both host and container.
 #
 # Examples:
-# PODMAN_VOLUME=~/projects:/projects:Z
-# PODMAN_VOLUME=~/data:/data:ro,Z
-# PODMAN_VOLUME=/mnt/storage:/storage:Z
+YOLO_PODMAN_VOLUMES=(
+    # "~/projects"              # Mount ~/projects at same path in container
+    # "~/data::ro"              # Mount ~/data read-only at same path
+    # "/mnt/storage:/storage:Z" # Explicit host:container:options
+)
 
 # ============================================================================
 # PODMAN OPTIONS
 # ============================================================================
-# Additional podman options passed to 'podman run'
-# You can specify environment variables, network settings, etc.
+# Array of additional options passed to 'podman run'
+# You can specify environment variables, network settings, resource limits, etc.
 #
 # Examples:
+YOLO_PODMAN_OPTIONS=(
+    # "--env=DEBUG=1"
+    # "--env=MY_API_KEY=secret"
+    # "--network=host"
+    # "--cpus=2"
+    # "--memory=4g"
+)
+
+# ============================================================================
+# CLAUDE ARGUMENTS
+# ============================================================================
+# Array of arguments passed to the claude command inside the container
+# These are passed after --dangerously-skip-permissions
+#
+# Examples:
+YOLO_CLAUDE_ARGS=(
+    # "--model=claude-3-opus-20240229"
+    # "--verbose"
+)
+
+# ============================================================================
+# DEFAULT FLAGS
+# ============================================================================
+# Set default behavior for yolo flags
+# Command line options will override these settings
+
+# Use anonymized container paths (/claude, /workspace) instead of host paths
+# USE_ANONYMIZED_PATHS=0
+
+# Enable NVIDIA GPU passthrough by default (requires nvidia-container-toolkit)
+# USE_NVIDIA=0
+
+# Git worktree handling mode: ask (default), bind, skip, or error
+# WORKTREE_MODE="ask"
+
+# ============================================================================
+# USAGE NOTES
+# ============================================================================
+# - This file is sourced as a bash script, so you can use bash syntax
+# - Arrays can span multiple lines for readability
+# - Command line arguments always take precedence over config file
+# - Use --no-config flag to ignore the config file entirely
+# - Use --install-config to recreate this template
+
 # PODMAN_OPTION=--env=DEBUG=1
 # PODMAN_OPTION=--env=MY_API_KEY=secret
 # PODMAN_OPTION=--network=host

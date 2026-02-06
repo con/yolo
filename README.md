@@ -56,17 +56,17 @@ yolo --worktree=error
 
 ### Project Configuration
 
-You can create a per-project configuration file to avoid repeating command line options. Create a file at `.git/yolo/config` in your project:
+You can create a per-project configuration file to avoid repeating command line options. The config is auto-created on first run, or you can use `yolo --install-config`:
 
 ```bash
-# Create the directory
-mkdir -p .git/yolo
+# Auto-creates .git/yolo/config on first run in a git repo
+yolo
 
-# Copy the example configuration
-cp config.example .git/yolo/config
+# Or manually install/view config
+yolo --install-config
 
 # Edit with your preferences
-nano .git/yolo/config
+vi .git/yolo/config
 ```
 
 The configuration file is stored in `.git/yolo/` which means:
@@ -76,19 +76,30 @@ The configuration file is stored in `.git/yolo/` which means:
 
 **Example configuration** (`.git/yolo/config`):
 ```bash
-# Mount additional directories
-PODMAN_VOLUME=~/projects:/projects:Z
-PODMAN_VOLUME=~/data:/data:ro,Z
+# Volume mounts with shorthand syntax
+YOLO_PODMAN_VOLUMES=(
+    "~/projects"        # Mounts ~/projects at same path in container
+    "~/data::ro"        # Mounts ~/data read-only at same path
+)
 
-# Set environment variables
-PODMAN_OPTION=--env=DEBUG=1
+# Additional podman options
+YOLO_PODMAN_OPTIONS=(
+    "--env=DEBUG=1"
+)
 
-# Pass arguments to claude
-CLAUDE_ARG=--model=claude-3-opus-20240229
+# Arguments for claude
+YOLO_CLAUDE_ARGS=(
+    "--model=claude-3-opus-20240229"
+)
 
-# Enable GPU by default
+# Default flags
 USE_NVIDIA=1
 ```
+
+**Volume shorthand syntax:**
+- `"~/projects"` → `~/projects:~/projects:Z` (1-to-1 mount)
+- `"~/data::ro"` → `~/data:~/data:ro,Z` (1-to-1 with options)
+- `"~/data:/data:Z"` → `~/data:/data:Z` (explicit, unchanged)
 
 Command line options always override configuration file settings. Use `--no-config` to ignore the configuration file entirely.
 
