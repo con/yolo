@@ -38,6 +38,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Upgrade git to version with worktree --orphan support (added in git 2.42.0)
+# Debian bookworm ships with git 2.39.5, so we install from trixie (testing)
+# The trixie repository is removed after installation to prevent other packages
+# from being inadvertently upgraded from testing
+RUN echo 'deb http://deb.debian.org/debian trixie main' > /etc/apt/sources.list.d/trixie.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends -t trixie git \
+  && rm /etc/apt/sources.list.d/trixie.list \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Install extra packages if specified
 RUN if [ -n "$EXTRA_PACKAGES" ]; then \
       apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \

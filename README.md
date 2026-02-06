@@ -111,6 +111,12 @@ podman run -it --rm \
 
 The Dockerfile is based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile) and includes Claude Code CLI plus common development tools. See the Dockerfile for the complete list.
 
+### Git Version
+
+The container includes git 2.47.3 from Debian trixie (testing), which is newer than the version (2.39.5) in Debian 12 bookworm. This provides support for modern git features including:
+- `git worktree add --orphan` (added in git 2.42.0) - create orphan branches in worktrees
+- Other improvements from git 2.40 through 2.47
+
 ## Command Breakdown
 
 ### Default Behavior (Preserved Host Paths)
