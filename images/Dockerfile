@@ -14,6 +14,8 @@ ARG EXTRA_CUDA=""
 ARG EXTRA_PLAYWRIGHT=""
 
 # Install basic development tools
+# tini is included as a minimal init process to properly reap zombie processes
+# when Claude spawns external tools (git, npm, etc.) that may fork children
 RUN apt-get update && apt-get install -y --no-install-recommends \
   dnsutils \
   fzf \
@@ -32,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   procps \
   shellcheck \
   sudo \
+  tini \
   tree \
   unzip \
   vim \
@@ -134,4 +137,6 @@ ENV PATH="/home/node/.local/bin:$PATH"
 RUN uv tool install git-annex && \
   uv cache clean
 
+# Use tini as init process to properly reap zombie processes
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["claude"]
