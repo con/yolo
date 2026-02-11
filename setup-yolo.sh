@@ -305,6 +305,13 @@ if [ "$SHOULD_INSTALL" = true ]; then
     echo
     echo "Run 'yolo --help' for all available options."
     echo
+    echo "PROJECT CONFIGURATION:"
+    echo "  Config is auto-created on first run, or use:"
+    echo "    yolo --install-config"
+    echo "  Then edit with:"
+    echo "    vi .git/yolo/config"
+    echo "  See config.example for all options including volume shorthand syntax."
+    echo
     echo "The containerized Claude Code will start with full permissions"
     echo "in the current directory, with credentials and git access configured."
     echo
