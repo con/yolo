@@ -429,6 +429,7 @@ podman run --log-driver=none -it --rm \
     -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
     -e CLAUDE_CODE_OAUTH_TOKEN \
+    -e CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS \
     "${NVIDIA_ARGS[@]}" \
     "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \
