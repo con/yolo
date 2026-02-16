@@ -54,6 +54,57 @@ yolo --worktree=error
 
 **Security note**: Bind mounting the original repo exposes more files and allows modifications. The prompt helps prevent unintended access.
 
+### Project Configuration
+
+You can create a per-project configuration file to avoid repeating command line options. The config is auto-created on first run, or you can use `yolo --install-config`:
+
+```bash
+# Auto-creates .git/yolo/config on first run in a git repo
+yolo
+
+# Or manually install/view config
+yolo --install-config
+
+# Edit with your preferences
+vi .git/yolo/config
+```
+
+The configuration file is stored in `.git/yolo/` which means:
+- It won't be tracked by git
+- It won't be destroyed by `git clean`
+- It works correctly with git worktrees (they all reference the same `.git` directory)
+
+**Example configuration** (`.git/yolo/config`):
+```bash
+# Volume mounts with shorthand syntax
+YOLO_PODMAN_VOLUMES=(
+    "~/projects"        # Mounts ~/projects at same path in container
+    "~/data::ro"        # Mounts ~/data read-only at same path
+)
+
+# Additional podman options
+YOLO_PODMAN_OPTIONS=(
+    "--env=DEBUG=1"
+)
+
+# Arguments for claude
+YOLO_CLAUDE_ARGS=(
+    "--model=claude-3-opus-20240229"
+)
+
+# Default flags
+USE_NVIDIA=1
+```
+
+**Volume shorthand syntax:**
+- `"~/projects"` → `~/projects:~/projects:Z` (1-to-1 mount)
+- `"~/data::ro"` → `~/data:~/data:ro,Z` (1-to-1 with options)
+- `"~/data:/data:Z"` → `~/data:/data:Z` (explicit, unchanged)
+
+Command line options always override configuration file settings. Use `--no-config` to ignore the configuration file entirely.
+
+See `config.example` for a complete configuration template with detailed comments.
+
 > **TODO**: Add curl-based one-liner setup once this PR is merged
 
 ## First-Time Login

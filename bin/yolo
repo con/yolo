@@ -10,14 +10,16 @@ Usage: yolo [OPTIONS] [-- CLAUDE_ARGS...]
 Run Claude Code in YOLO mode (auto-approve all actions) inside a container.
 
 OPTIONS:
-    -h, --help          Show this help message
-    --anonymized-paths  Use anonymized paths (/claude, /workspace) instead of
-                        preserving host paths
-    --entrypoint=CMD    Override the container entrypoint (default: claude)
-    --worktree=MODE     Git worktree handling: ask, bind, skip, error
-                        (default: ask)
-    --nvidia            Enable NVIDIA GPU passthrough via CDI
-                        Requires nvidia-container-toolkit on host
+    -h, --help           Show this help message
+    --anonymized-paths   Use anonymized paths (/claude, /workspace) instead of
+                         preserving host paths
+    --entrypoint=CMD     Override the container entrypoint (default: claude)
+    --worktree=MODE      Git worktree handling: ask, bind, skip, error
+                         (default: ask)
+    --nvidia             Enable NVIDIA GPU passthrough via CDI
+                         Requires nvidia-container-toolkit on host
+    --no-config          Ignore project configuration file
+    --install-config     Create/display .git/yolo/config template
 
     Additional podman options can be passed before --
 
@@ -35,12 +37,135 @@ NVIDIA GPU SETUP:
     2. Generate CDI spec: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
     3. Use: yolo --nvidia
 
+PROJECT CONFIGURATION:
+    Create .git/yolo/config to set per-project defaults.
+    Run 'yolo --install-config' to create a template.
+    
+    The config file is a bash script that can set:
+    - YOLO_PODMAN_VOLUMES: array of volume mounts
+    - YOLO_PODMAN_OPTIONS: array of podman options
+    - YOLO_CLAUDE_ARGS: array of arguments for claude
+    - USE_ANONYMIZED_PATHS: 0 or 1
+    - USE_NVIDIA: 0 or 1
+    - WORKTREE_MODE: ask, bind, skip, or error
+
 EOF
     exit 0
 }
 
+# Function to print the default config template
+print_config_template() {
+    cat << 'EOF'
+# YOLO Project Configuration
+# This file is sourced as a bash script by yolo
+# Location: .git/yolo/config
+
+# Volume mounts - array of volumes to mount
+# Syntax options:
+#   "~/projects"              -> ~/projects:~/projects:Z (1-to-1 mount)
+#   "~/projects::ro"          -> ~/projects:~/projects:ro,Z (1-to-1 with options)
+#   "~/data:/data:Z"          -> ~/data:/data:Z (explicit mapping)
+YOLO_PODMAN_VOLUMES=(
+    # "~/projects"
+    # "~/data::ro"
+)
+
+# Additional podman options - array of options
+YOLO_PODMAN_OPTIONS=(
+    # "--env=DEBUG=1"
+    # "--network=host"
+)
+
+# Claude arguments - array of arguments passed to claude
+YOLO_CLAUDE_ARGS=(
+    # "--model=claude-3-opus-20240229"
+)
+
+# Default flags (0 or 1)
+# USE_ANONYMIZED_PATHS=0
+# USE_NVIDIA=0
+# WORKTREE_MODE="ask"
+EOF
+}
+
+# Function to install config
+install_config() {
+    # Find .git directory
+    local git_dir=""
+    local current_dir="$(pwd)"
+    
+    while [ "$current_dir" != "/" ]; do
+        if [ -d "$current_dir/.git" ]; then
+            git_dir="$current_dir/.git"
+            break
+        elif [ -f "$current_dir/.git" ]; then
+            # Worktree - read gitdir path
+            local gitdir_line=$(cat "$current_dir/.git")
+            if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
+                local gitdir_path="${BASH_REMATCH[1]}"
+                if [[ "$gitdir_path" != /* ]]; then
+                    gitdir_path="$current_dir/$gitdir_path"
+                fi
+                if [[ "$gitdir_path" =~ ^(.+/\.git)/worktrees/ ]]; then
+                    git_dir="${BASH_REMATCH[1]}"
+                    break
+                fi
+            fi
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+    
+    if [ -z "$git_dir" ]; then
+        echo "Error: Not in a git repository" >&2
+        exit 1
+    fi
+    
+    local config_dir="$git_dir/yolo"
+    local config_file="$config_dir/config"
+    
+    if [ -f "$config_file" ]; then
+        echo "Config file already exists at: $config_file"
+        echo ""
+        cat "$config_file"
+    else
+        mkdir -p "$config_dir"
+        print_config_template > "$config_file"
+        echo "Created config file at: $config_file"
+        echo ""
+        echo "Edit with: vi $config_file"
+    fi
+    
+    exit 0
+}
+
+# Function to expand volume shorthand syntax
+expand_volume() {
+    local vol="$1"
+    
+    # Check for :: syntax first (shorthand with options)
+    if [[ "$vol" == *::* ]]; then
+        # Shorthand with options: ~/projects::ro,Z
+        local path="${vol%%::*}"
+        local opts="${vol#*::}"
+        # Expand ~ to $HOME
+        path="${path/#\~/$HOME}"
+        echo "${path}:${path}:${opts}"
+    elif [[ "$vol" == *:*:* ]]; then
+        # Full form: host:container:options
+        echo "$vol"
+    elif [[ "$vol" == *:* ]]; then
+        # Partial form: host:container (add :Z)
+        echo "${vol}:Z"
+    else
+        # Shorthand: ~/projects
+        # Expand ~ to $HOME and create 1-to-1 mapping
+        local path="${vol/#\~/$HOME}"
+        echo "${path}:${path}:Z"
+    fi
+}
+
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths, --entrypoint, --worktree, and --nvidia flags
+# Also check for --anonymized-paths, --entrypoint, --worktree, --nvidia, --no-config, and --install-config flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
@@ -48,11 +173,20 @@ USE_ANONYMIZED_PATHS=0
 ENTRYPOINT="claude"
 WORKTREE_MODE="ask"
 USE_NVIDIA=0
+USE_CONFIG=1
+
+# Initialize config arrays
+YOLO_PODMAN_VOLUMES=()
+YOLO_PODMAN_OPTIONS=()
+YOLO_CLAUDE_ARGS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
         -h|--help)
             show_help
+            ;;
+        --install-config)
+            install_config
             ;;
         --entrypoint)
             ENTRYPOINT="$2"
@@ -80,6 +214,10 @@ while [ $# -gt 0 ]; do
             USE_NVIDIA=1
             shift
             ;;
+        --no-config)
+            USE_CONFIG=0
+            shift
+            ;;
         --)
             shift
             found_separator=1
@@ -97,10 +235,76 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Save original PODMAN_ARGS for later (before we potentially move them to CLAUDE_ARGS)
+CLI_PODMAN_ARGS=("${PODMAN_ARGS[@]}")
+
 if [ "$found_separator" = 0 ]; then
     # so we did not find any -- everything is actually CLAUDE_ARGS
     CLAUDE_ARGS=("${PODMAN_ARGS[@]}")
     PODMAN_ARGS=()
+fi
+
+# Load configuration if requested (after separator logic)
+if [ "$USE_CONFIG" -eq 1 ]; then
+    # Find .git directory
+    git_dir=""
+    current_dir="$(pwd)"
+    
+    while [ "$current_dir" != "/" ]; do
+        if [ -d "$current_dir/.git" ]; then
+            git_dir="$current_dir/.git"
+            break
+        elif [ -f "$current_dir/.git" ]; then
+            # Worktree - read gitdir path
+            gitdir_line=$(cat "$current_dir/.git")
+            if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
+                gitdir_path="${BASH_REMATCH[1]}"
+                if [[ "$gitdir_path" != /* ]]; then
+                    gitdir_path="$current_dir/$gitdir_path"
+                fi
+                if [[ "$gitdir_path" =~ ^(.+/\.git)/worktrees/ ]]; then
+                    git_dir="${BASH_REMATCH[1]}"
+                    break
+                fi
+            fi
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+    
+    if [ -n "$git_dir" ]; then
+        config_dir="$git_dir/yolo"
+        config_file="$config_dir/config"
+        
+        # Auto-create config directory and template on first run
+        if [ ! -d "$config_dir" ]; then
+            mkdir -p "$config_dir"
+            print_config_template > "$config_file"
+            echo "Created default config at: $config_file" >&2
+            echo "Edit with: vi $config_file" >&2
+            echo "" >&2
+        fi
+        
+        if [ -f "$config_file" ]; then
+            # Source the config file
+            source "$config_file"
+            
+            # Process volumes and expand shorthand syntax
+            for vol in "${YOLO_PODMAN_VOLUMES[@]}"; do
+                expanded=$(expand_volume "$vol")
+                PODMAN_ARGS=("-v" "$expanded" "${PODMAN_ARGS[@]}")
+            done
+            
+            # Add podman options
+            for opt in "${YOLO_PODMAN_OPTIONS[@]}"; do
+                PODMAN_ARGS=("$opt" "${PODMAN_ARGS[@]}")
+            done
+            
+            # Add claude args
+            if [ ${#YOLO_CLAUDE_ARGS[@]} -gt 0 ]; then
+                CLAUDE_ARGS=("${YOLO_CLAUDE_ARGS[@]}" "${CLAUDE_ARGS[@]}")
+            fi
+        fi
+    fi
 fi
 
 # Give a meaningful name based on PWD and the PID to help identifying
