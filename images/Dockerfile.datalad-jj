@@ -1,0 +1,22 @@
+# Derived image that adds DataLad and Jujutsu (jj) on top of the base image
+ARG BASE_IMAGE=con-bomination-claude-code
+FROM ${BASE_IMAGE}
+
+ARG JJ_VERSION=0.38.0
+
+# Install DataLad with useful extensions
+RUN uv tool install --with datalad-container --with datalad-next datalad && \
+  uv cache clean
+
+# Install Jujutsu (jj) from GitHub release (musl binary for portability)
+RUN ARCH=$(uname -m) && \
+  wget -qO /tmp/jj.tar.gz \
+    "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-${ARCH}-unknown-linux-musl.tar.gz" && \
+  mkdir -p ~/.local/bin && \
+  tar -xzf /tmp/jj.tar.gz -C ~/.local/bin ./jj && \
+  rm /tmp/jj.tar.gz
+
+# Enable jj shell completions for zsh
+RUN mkdir -p ~/.zfunc && \
+  ~/.local/bin/jj util completion zsh > ~/.zfunc/_jj && \
+  echo 'fpath=(~/.zfunc $fpath)' >> ~/.zshrc
