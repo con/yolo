@@ -57,6 +57,10 @@ YOLO_CLAUDE_ARGS=(
 # Set default behavior for yolo flags
 # Command line options will override these settings
 
+# Container image - a short suffix (e.g., datalad-jj) maps to
+# con-bomination-claude-code-<suffix>. A name containing / or : is used as-is.
+# YOLO_IMAGE="con-bomination-claude-code"
+
 # Use anonymized container paths (/claude, /workspace) instead of host paths
 # USE_ANONYMIZED_PATHS=0
 

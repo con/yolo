@@ -16,6 +16,9 @@ OPTIONS:
     --entrypoint=CMD     Override the container entrypoint (default: claude)
     --worktree=MODE      Git worktree handling: ask, bind, skip, error
                          (default: ask)
+    --image=NAME         Use a specific container image. A short suffix
+                         (e.g., datalad-jj) maps to con-bomination-claude-code-<suffix>.
+                         A name containing / or : is used as-is.
     --nvidia             Enable NVIDIA GPU passthrough via CDI
                          Requires nvidia-container-toolkit on host
     --no-config          Ignore project configuration file
@@ -28,6 +31,7 @@ EXAMPLES:
     yolo --nvidia                     # With GPU support
     yolo -v /data:/data               # Extra mount
     yolo -- "help with this code"     # Pass args to claude
+    yolo --image=datalad-jj           # Use derived image
     yolo --nvidia -- --resume         # GPU + claude args
 
 NVIDIA GPU SETUP:
@@ -42,6 +46,7 @@ PROJECT CONFIGURATION:
     Run 'yolo --install-config' to create a template.
     
     The config file is a bash script that can set:
+    - YOLO_IMAGE: container image name or suffix (e.g., datalad-jj)
     - YOLO_PODMAN_VOLUMES: array of volume mounts
     - YOLO_PODMAN_OPTIONS: array of podman options
     - YOLO_CLAUDE_ARGS: array of arguments for claude
@@ -80,6 +85,9 @@ YOLO_PODMAN_OPTIONS=(
 YOLO_CLAUDE_ARGS=(
     # "--model=claude-3-opus-20240229"
 )
+
+# Container image - suffix (e.g., datalad-jj) or full name (with / or :)
+# YOLO_IMAGE="con-bomination-claude-code"
 
 # Default flags (0 or 1)
 # USE_ANONYMIZED_PATHS=0
@@ -165,7 +173,7 @@ expand_volume() {
 }
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths, --entrypoint, --worktree, --nvidia, --no-config, and --install-config flags
+# Also check for --anonymized-paths, --entrypoint, --worktree, --image, --nvidia, --no-config, and --install-config flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
@@ -174,6 +182,8 @@ ENTRYPOINT="claude"
 WORKTREE_MODE="ask"
 USE_NVIDIA=0
 USE_CONFIG=1
+YOLO_IMAGE="con-bomination-claude-code"
+CLI_IMAGE=""
 
 # Initialize config arrays
 YOLO_PODMAN_VOLUMES=()
@@ -208,6 +218,15 @@ while [ $# -gt 0 ]; do
             ;;
         --anonymized-paths)
             USE_ANONYMIZED_PATHS=1
+            shift
+            ;;
+        --image=*)
+            _img="${1#--image=}"
+            if [[ "$_img" == */* || "$_img" == *:* ]]; then
+                CLI_IMAGE="$_img"
+            else
+                CLI_IMAGE="con-bomination-claude-code-${_img}"
+            fi
             shift
             ;;
         --nvidia)
@@ -303,6 +322,46 @@ if [ "$USE_CONFIG" -eq 1 ]; then
             if [ ${#YOLO_CLAUDE_ARGS[@]} -gt 0 ]; then
                 CLAUDE_ARGS=("${YOLO_CLAUDE_ARGS[@]}" "${CLAUDE_ARGS[@]}")
             fi
+
+            # Resolve YOLO_IMAGE from config (apply suffix logic if set)
+            if [[ -n "$YOLO_IMAGE" && "$YOLO_IMAGE" != "con-bomination-claude-code" ]]; then
+                if [[ "$YOLO_IMAGE" != */* && "$YOLO_IMAGE" != *:* && "$YOLO_IMAGE" != con-bomination-claude-code-* ]]; then
+                    YOLO_IMAGE="con-bomination-claude-code-${YOLO_IMAGE}"
+                fi
+            fi
+        fi
+    fi
+fi
+
+# CLI --image overrides config
+if [ -n "$CLI_IMAGE" ]; then
+    YOLO_IMAGE="$CLI_IMAGE"
+fi
+
+# Check if the requested image exists; offer to build from Dockerfile if available
+if [ "$YOLO_IMAGE" != "con-bomination-claude-code" ]; then
+    if ! podman image exists "$YOLO_IMAGE" 2>/dev/null; then
+        # Derive suffix: strip the base image prefix
+        _suffix="${YOLO_IMAGE#con-bomination-claude-code-}"
+        # Locate the images/ directory relative to this script
+        _script_dir="$(cd "$(dirname "$0")" && pwd)"
+        _dockerfile="${_script_dir}/../images/Dockerfile.${_suffix}"
+
+        if [ -f "$_dockerfile" ]; then
+            echo "Image '$YOLO_IMAGE' not found." >&2
+            echo "Dockerfile found: $_dockerfile" >&2
+            read -p "Build it now? [y/N] " -n 1 -r >&2
+            echo >&2
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                podman build -t "$YOLO_IMAGE" -f "$_dockerfile" "$(dirname "$_dockerfile")"
+            else
+                echo "Aborted." >&2
+                exit 1
+            fi
+        else
+            echo "Error: Image '$YOLO_IMAGE' not found and no Dockerfile at:" >&2
+            echo "  $_dockerfile" >&2
+            exit 1
         fi
     fi
 fi
@@ -432,5 +491,5 @@ podman run --log-driver=none -it --rm \
     -e CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS \
     "${NVIDIA_ARGS[@]}" \
     "${PODMAN_ARGS[@]}" \
-    con-bomination-claude-code \
+    "$YOLO_IMAGE" \
     "${CONTAINER_CMD[@]}"
