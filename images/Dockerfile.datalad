@@ -1,0 +1,7 @@
+# Derived image that adds DataLad on top of the base image
+ARG BASE_IMAGE=con-bomination-claude-code
+FROM ${BASE_IMAGE}
+
+# Install DataLad with useful extensions
+RUN uv tool install --with datalad-container --with datalad-next datalad && \
+  uv cache clean
