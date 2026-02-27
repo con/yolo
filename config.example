@@ -2,6 +2,10 @@
 # This file is sourced as a bash script by yolo
 # Location: .git/yolo/config
 #
+# User-wide config: ${XDG_CONFIG_HOME:-~/.config}/yolo/config
+# Arrays (YOLO_PODMAN_VOLUMES, etc.) are merged from both configs.
+# Scalar flags set here override user-wide values.
+#
 # The .git/yolo directory is safe from 'git clean' and works with git worktrees.
 
 # ============================================================================
