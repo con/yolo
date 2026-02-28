@@ -1,8 +1,6 @@
 #!/bin/bash
 # Claude Code YOLO mode - auto-approve all actions in containerized environment
 
-set -e
-
 show_help() {
     cat << 'EOF'
 Usage: yolo [OPTIONS] [-- CLAUDE_ARGS...]
@@ -100,7 +98,8 @@ EOF
 install_config() {
     # Find .git directory
     local git_dir=""
-    local current_dir="$(pwd)"
+    local current_dir
+    current_dir="$(pwd)"
     
     while [ "$current_dir" != "/" ]; do
         if [ -d "$current_dir/.git" ]; then
@@ -108,7 +107,8 @@ install_config() {
             break
         elif [ -f "$current_dir/.git" ]; then
             # Worktree - read gitdir path
-            local gitdir_line=$(cat "$current_dir/.git")
+            local gitdir_line
+            gitdir_line=$(cat "$current_dir/.git")
             if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
                 local gitdir_path="${BASH_REMATCH[1]}"
                 if [[ "$gitdir_path" != /* ]]; then
@@ -171,6 +171,9 @@ expand_volume() {
         echo "${path}:${path}:Z"
     fi
 }
+
+main() {
+set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
 # Also check for --anonymized-paths, --entrypoint, --worktree, --nvidia, --no-config, and --install-config flags
@@ -243,9 +246,6 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# Save original PODMAN_ARGS for later (before we potentially move them to CLAUDE_ARGS)
-CLI_PODMAN_ARGS=("${PODMAN_ARGS[@]}")
-
 if [ "$found_separator" = 0 ]; then
     # so we did not find any -- everything is actually CLAUDE_ARGS
     CLAUDE_ARGS=("${PODMAN_ARGS[@]}")
@@ -260,6 +260,7 @@ if [ "$USE_CONFIG" -eq 1 ]; then
     _USER_OPTIONS=()
     _USER_CLAUDE_ARGS=()
     if [ -f "$_USER_CONFIG" ]; then
+        # shellcheck source=/dev/null
         source "$_USER_CONFIG"
         # Save user-wide arrays
         _USER_VOLUMES=("${YOLO_PODMAN_VOLUMES[@]}")
@@ -310,7 +311,7 @@ if [ "$USE_CONFIG" -eq 1 ]; then
         fi
 
         if [ -f "$config_file" ]; then
-            # Source the config file (scalars override user-wide naturally)
+            # shellcheck source=/dev/null
             source "$config_file"
         fi
     fi
@@ -464,3 +465,10 @@ podman run --log-driver=none -it --rm \
     "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \
     "${CONTAINER_CMD[@]}"
+}
+
+# Only run main when executed directly, not when sourced.
+# This allows tests to source function definitions without side effects.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

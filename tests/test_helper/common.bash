@@ -36,16 +36,12 @@ teardown() {
 
 # ── helpers ───────────────────────────────────────────────────────
 
-# Source function definitions from bin/yolo without executing the main body.
-# Extracts everything above the argument-parsing section, strips the shebang
-# and `set -e`, then evals it.  This is more robust than per-function sed
-# extraction which depends on matching closing braces at column 0.
+# Source function definitions from bin/yolo.
+# The script uses a main() guard so sourcing it defines functions
+# (expand_volume, print_config_template, etc.) without side effects.
 load_yolo_functions() {
-    eval "$(sed -n '2,/^# Parse arguments/{
-        /^set -e$/d
-        /^# Parse arguments/d
-        p
-    }' "$YOLO_BIN")"
+    # shellcheck source=/dev/null
+    source "$YOLO_BIN"
 }
 
 # Run yolo with mocked environment from the test repo directory.
