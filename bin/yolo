@@ -1,8 +1,6 @@
 #!/bin/bash
 # Claude Code YOLO mode - auto-approve all actions in containerized environment
 
-set -e
-
 show_help() {
     cat << 'EOF'
 Usage: yolo [OPTIONS] [-- CLAUDE_ARGS...]
@@ -37,17 +35,21 @@ NVIDIA GPU SETUP:
     2. Generate CDI spec: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
     3. Use: yolo --nvidia
 
-PROJECT CONFIGURATION:
-    Create .git/yolo/config to set per-project defaults.
-    Run 'yolo --install-config' to create a template.
-    
-    The config file is a bash script that can set:
+CONFIGURATION:
+    User-wide:  ${XDG_CONFIG_HOME:-~/.config}/yolo/config
+    Per-project: .git/yolo/config
+    Run 'yolo --install-config' to create a per-project template.
+
+    Both files are bash scripts that can set:
     - YOLO_PODMAN_VOLUMES: array of volume mounts
     - YOLO_PODMAN_OPTIONS: array of podman options
     - YOLO_CLAUDE_ARGS: array of arguments for claude
     - USE_ANONYMIZED_PATHS: 0 or 1
     - USE_NVIDIA: 0 or 1
     - WORKTREE_MODE: ask, bind, skip, or error
+
+    Arrays are merged (user-wide + project). Scalar flags are
+    overridden by project config. --no-config suppresses both.
 
 EOF
     exit 0
@@ -59,6 +61,10 @@ print_config_template() {
 # YOLO Project Configuration
 # This file is sourced as a bash script by yolo
 # Location: .git/yolo/config
+#
+# User-wide config: ${XDG_CONFIG_HOME:-~/.config}/yolo/config
+# Arrays (YOLO_PODMAN_VOLUMES, etc.) are merged from both configs.
+# Scalar flags set here override user-wide values.
 
 # Volume mounts - array of volumes to mount
 # Syntax options:
@@ -92,7 +98,8 @@ EOF
 install_config() {
     # Find .git directory
     local git_dir=""
-    local current_dir="$(pwd)"
+    local current_dir
+    current_dir="$(pwd)"
     
     while [ "$current_dir" != "/" ]; do
         if [ -d "$current_dir/.git" ]; then
@@ -100,7 +107,8 @@ install_config() {
             break
         elif [ -f "$current_dir/.git" ]; then
             # Worktree - read gitdir path
-            local gitdir_line=$(cat "$current_dir/.git")
+            local gitdir_line
+            gitdir_line=$(cat "$current_dir/.git")
             if [[ "$gitdir_line" =~ ^gitdir:\ (.+)$ ]]; then
                 local gitdir_path="${BASH_REMATCH[1]}"
                 if [[ "$gitdir_path" != /* ]]; then
@@ -163,6 +171,9 @@ expand_volume() {
         echo "${path}:${path}:Z"
     fi
 }
+
+main() {
+set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
 # Also check for --anonymized-paths, --entrypoint, --worktree, --nvidia, --no-config, and --install-config flags
@@ -235,9 +246,6 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# Save original PODMAN_ARGS for later (before we potentially move them to CLAUDE_ARGS)
-CLI_PODMAN_ARGS=("${PODMAN_ARGS[@]}")
-
 if [ "$found_separator" = 0 ]; then
     # so we did not find any -- everything is actually CLAUDE_ARGS
     CLAUDE_ARGS=("${PODMAN_ARGS[@]}")
@@ -246,10 +254,28 @@ fi
 
 # Load configuration if requested (after separator logic)
 if [ "$USE_CONFIG" -eq 1 ]; then
+    # Load user-wide config first
+    _USER_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/yolo/config"
+    _USER_VOLUMES=()
+    _USER_OPTIONS=()
+    _USER_CLAUDE_ARGS=()
+    if [ -f "$_USER_CONFIG" ]; then
+        # shellcheck source=/dev/null
+        source "$_USER_CONFIG"
+        # Save user-wide arrays
+        _USER_VOLUMES=("${YOLO_PODMAN_VOLUMES[@]}")
+        _USER_OPTIONS=("${YOLO_PODMAN_OPTIONS[@]}")
+        _USER_CLAUDE_ARGS=("${YOLO_CLAUDE_ARGS[@]}")
+        # Reset for project config
+        YOLO_PODMAN_VOLUMES=()
+        YOLO_PODMAN_OPTIONS=()
+        YOLO_CLAUDE_ARGS=()
+    fi
+
     # Find .git directory
     git_dir=""
     current_dir="$(pwd)"
-    
+
     while [ "$current_dir" != "/" ]; do
         if [ -d "$current_dir/.git" ]; then
             git_dir="$current_dir/.git"
@@ -270,11 +296,11 @@ if [ "$USE_CONFIG" -eq 1 ]; then
         fi
         current_dir="$(dirname "$current_dir")"
     done
-    
+
     if [ -n "$git_dir" ]; then
         config_dir="$git_dir/yolo"
         config_file="$config_dir/config"
-        
+
         # Auto-create config directory and template on first run
         if [ ! -d "$config_dir" ]; then
             mkdir -p "$config_dir"
@@ -283,27 +309,32 @@ if [ "$USE_CONFIG" -eq 1 ]; then
             echo "Edit with: vi $config_file" >&2
             echo "" >&2
         fi
-        
+
         if [ -f "$config_file" ]; then
-            # Source the config file
+            # shellcheck source=/dev/null
             source "$config_file"
-            
-            # Process volumes and expand shorthand syntax
-            for vol in "${YOLO_PODMAN_VOLUMES[@]}"; do
-                expanded=$(expand_volume "$vol")
-                PODMAN_ARGS=("-v" "$expanded" "${PODMAN_ARGS[@]}")
-            done
-            
-            # Add podman options
-            for opt in "${YOLO_PODMAN_OPTIONS[@]}"; do
-                PODMAN_ARGS=("$opt" "${PODMAN_ARGS[@]}")
-            done
-            
-            # Add claude args
-            if [ ${#YOLO_CLAUDE_ARGS[@]} -gt 0 ]; then
-                CLAUDE_ARGS=("${YOLO_CLAUDE_ARGS[@]}" "${CLAUDE_ARGS[@]}")
-            fi
         fi
+    fi
+
+    # Merge user-wide + project arrays
+    YOLO_PODMAN_VOLUMES=("${_USER_VOLUMES[@]}" "${YOLO_PODMAN_VOLUMES[@]}")
+    YOLO_PODMAN_OPTIONS=("${_USER_OPTIONS[@]}" "${YOLO_PODMAN_OPTIONS[@]}")
+    YOLO_CLAUDE_ARGS=("${_USER_CLAUDE_ARGS[@]}" "${YOLO_CLAUDE_ARGS[@]}")
+
+    # Process volumes and expand shorthand syntax
+    for vol in "${YOLO_PODMAN_VOLUMES[@]}"; do
+        expanded=$(expand_volume "$vol")
+        PODMAN_ARGS=("-v" "$expanded" "${PODMAN_ARGS[@]}")
+    done
+
+    # Add podman options
+    for opt in "${YOLO_PODMAN_OPTIONS[@]}"; do
+        PODMAN_ARGS=("$opt" "${PODMAN_ARGS[@]}")
+    done
+
+    # Add claude args
+    if [ ${#YOLO_CLAUDE_ARGS[@]} -gt 0 ]; then
+        CLAUDE_ARGS=("${YOLO_CLAUDE_ARGS[@]}" "${CLAUDE_ARGS[@]}")
     fi
 fi
 
@@ -434,3 +465,10 @@ podman run --log-driver=none -it --rm \
     "${PODMAN_ARGS[@]}" \
     con-bomination-claude-code \
     "${CONTAINER_CMD[@]}"
+}
+
+# Only run main when executed directly, not when sourced.
+# This allows tests to source function definitions without side effects.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
