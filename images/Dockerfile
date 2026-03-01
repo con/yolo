@@ -137,6 +137,30 @@ ENV PATH="/home/node/.local/bin:$PATH"
 RUN uv tool install git-annex && \
   uv cache clean
 
+# Optional extras: datalad and jj
+ARG EXTRA_DATALAD=""
+ARG EXTRA_JJ=""
+ARG JJ_VERSION=0.38.0
+
+# Install DataLad with useful extensions
+RUN if [ "$EXTRA_DATALAD" = "1" ]; then \
+      uv tool install --with datalad-container --with datalad-next datalad && \
+      uv cache clean; \
+    fi
+
+# Install Jujutsu (jj) from GitHub release (musl binary for portability)
+RUN if [ "$EXTRA_JJ" = "1" ]; then \
+      ARCH=$(uname -m) && \
+      wget -qO /tmp/jj.tar.gz \
+        "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-${ARCH}-unknown-linux-musl.tar.gz" && \
+      mkdir -p ~/.local/bin && \
+      tar -xzf /tmp/jj.tar.gz -C ~/.local/bin ./jj && \
+      rm /tmp/jj.tar.gz && \
+      mkdir -p ~/.zfunc && \
+      ~/.local/bin/jj util completion zsh > ~/.zfunc/_jj && \
+      echo 'fpath=(~/.zfunc $fpath)' >> ~/.zshrc; \
+    fi
+
 # Use tini as init process to properly reap zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["claude"]
