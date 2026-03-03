@@ -33,6 +33,8 @@ OPTIONS:
                             cuda       - NVIDIA CUDA toolkit for building GPU extensions
                                          (experimental)
                             playwright - Playwright with Chromium for browser automation
+                            datalad    - DataLad with datalad-container and datalad-next
+                            jj         - Jujutsu version control system
                             all        - Enable all extras
 
 EXAMPLES:
@@ -99,12 +101,12 @@ while [[ $# -gt 0 ]]; do
             EXTRAS="${1#*=}"
             # Expand "all" to all available extras
             if [[ "$EXTRAS" == "all" ]]; then
-                EXTRAS="cuda,playwright"
+                EXTRAS="cuda,playwright,datalad,jj"
             fi
             # Validate extras
             for extra in ${EXTRAS//,/ }; do
-                if [[ ! "$extra" =~ ^(cuda|playwright)$ ]]; then
-                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, all"
+                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj)$ ]]; then
+                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, all"
                     exit 1
                 fi
             done
