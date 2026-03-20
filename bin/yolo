@@ -392,7 +392,7 @@ if [ "$is_worktree" -eq 1 ]; then
             exit 1
             ;;
         bind)
-            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:z")
             ;;
         skip)
             # Do nothing - skip bind mount
@@ -403,7 +403,7 @@ if [ "$is_worktree" -eq 1 ]; then
             read -p "Bind mount original repository? [y/N] " -n 1 -r >&2
             echo >&2
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:Z")
+                WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:z")
             fi
             ;;
     esac
@@ -414,14 +414,14 @@ if [ "$USE_ANONYMIZED_PATHS" -eq 1 ]; then
     # Old behavior: use anonymized paths
     CLAUDE_DIR="/claude"
     WORKSPACE_DIR="/workspace"
-    CLAUDE_MOUNT="$CLAUDE_HOME_DIR:/claude:Z"
-    WORKSPACE_MOUNT="$(pwd):/workspace:Z"
+    CLAUDE_MOUNT="$CLAUDE_HOME_DIR:/claude:z"
+    WORKSPACE_MOUNT="$(pwd):/workspace:z"
 else
     # New default behavior: preserve original host paths
     CLAUDE_DIR="$CLAUDE_HOME_DIR"
     WORKSPACE_DIR="$(pwd)"
-    CLAUDE_MOUNT="$CLAUDE_HOME_DIR:$CLAUDE_HOME_DIR:Z"
-    WORKSPACE_MOUNT="$(pwd):$(pwd):Z"
+    CLAUDE_MOUNT="$CLAUDE_HOME_DIR:$CLAUDE_HOME_DIR:z"
+    WORKSPACE_MOUNT="$(pwd):$(pwd):z"
 fi
 
 # Build the command to run inside the container
