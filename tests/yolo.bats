@@ -56,7 +56,7 @@ EOF
 @test "--anonymized-paths: workspace mount uses /workspace" {
     run_yolo --anonymized-paths
     assert_success
-    podman_args_contain "/workspace:Z"
+    podman_args_contain "/workspace:z"
 }
 
 @test "--nvidia: podman args contain --device nvidia.com/gpu=all" {
