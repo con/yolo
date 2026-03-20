@@ -453,7 +453,7 @@ podman run --log-driver=none -it --rm \
     --userns=keep-id \
     --name="$name" \
     -v "$CLAUDE_MOUNT" \
-    -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,Z" \
+    -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,z" \
     -v "$WORKSPACE_MOUNT" \
     "${WORKTREE_MOUNTS[@]}" \
     -w "$WORKSPACE_DIR" \
