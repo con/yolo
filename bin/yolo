@@ -338,11 +338,6 @@ if [ "$USE_CONFIG" -eq 1 ]; then
     fi
 fi
 
-# Give a meaningful name based on PWD and the PID to help identifying
-# all those podman containers
-# Note: leading periods and underscores are stripped as they're not allowed in container names
-name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" -e "s,^[._]*,," )
-
 CLAUDE_HOME_DIR="$HOME/.claude"
 # must exist but might not if first start on that box
 mkdir -p "$CLAUDE_HOME_DIR"
@@ -423,6 +418,15 @@ else
     CLAUDE_MOUNT="$CLAUDE_HOME_DIR:$CLAUDE_HOME_DIR:z"
     WORKSPACE_MOUNT="$(pwd):$(pwd):z"
 fi
+
+# Give a meaningful name based on PWD and the PID to help identifying
+# all those podman containers
+# Note: leading periods and underscores are stripped as they're not allowed in container names
+name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" -e "s,^[._]*,," )
+
+# Reuse the same name for the session (could be potentially overriden with later options
+# as for the container to easier associate the too
+CLAUDE_ARGS=("--name=$name" "${CLAUDE_ARGS[@]}")
 
 # Build the command to run inside the container
 if [ "$ENTRYPOINT" = "claude" ]; then
