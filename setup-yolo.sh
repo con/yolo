@@ -35,6 +35,7 @@ OPTIONS:
                             playwright - Playwright with Chromium for browser automation
                             datalad    - DataLad with datalad-container and datalad-next
                             jj         - Jujutsu version control system
+                            deno       - Deno JS/TS runtime and formatter
                             all        - Enable all extras
 
 EXAMPLES:
@@ -101,12 +102,12 @@ while [[ $# -gt 0 ]]; do
             EXTRAS="${1#*=}"
             # Expand "all" to all available extras
             if [[ "$EXTRAS" == "all" ]]; then
-                EXTRAS="cuda,playwright,datalad,jj"
+                EXTRAS="cuda,playwright,datalad,jj,deno"
             fi
             # Validate extras
             for extra in ${EXTRAS//,/ }; do
-                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj)$ ]]; then
-                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, all"
+                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj|deno)$ ]]; then
+                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, deno, all"
                     exit 1
                 fi
             done
