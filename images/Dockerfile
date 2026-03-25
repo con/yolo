@@ -161,6 +161,22 @@ RUN if [ "$EXTRA_JJ" = "1" ]; then \
       echo 'fpath=(~/.zfunc $fpath)' >> ~/.zshrc; \
     fi
 
+# Install Deno JS/TS runtime and formatter
+ARG EXTRA_DENO=""
+ARG DENO_VERSION=""
+
+RUN if [ "$EXTRA_DENO" = "1" ]; then \
+      if [ -n "$DENO_VERSION" ]; then \
+        curl -fsSL https://deno.land/install.sh | sh -s -- --version "v$DENO_VERSION"; \
+      else \
+        curl -fsSL https://deno.land/install.sh | sh; \
+      fi && \
+      echo 'export PATH="$HOME/.deno/bin:$PATH"' >> ~/.zshrc && \
+      echo 'export PATH="$HOME/.deno/bin:$PATH"' >> ~/.bashrc; \
+    fi
+
+ENV PATH="/home/node/.deno/bin:$PATH"
+
 # Use tini as init process to properly reap zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["claude"]
