@@ -457,6 +457,7 @@ podman run --log-driver=none -it --rm \
     -v "$WORKSPACE_MOUNT" \
     "${WORKTREE_MOUNTS[@]}" \
     -w "$WORKSPACE_DIR" \
+    -e HOME=/home/node \
     -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
     -e CLAUDE_CODE_OAUTH_TOKEN \
