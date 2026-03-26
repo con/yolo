@@ -12,7 +12,8 @@ OPTIONS:
     --anonymized-paths   Use anonymized paths (/claude, /workspace) instead of
                          preserving host paths
     --entrypoint=CMD     Override the container entrypoint (default: claude)
-    --worktree=MODE      Git worktree handling: ask, bind, skip, error
+    --worktree=MODE      Git worktree handling: ask, bind, skip, error,
+                         create:<branch-name>
                          (default: ask)
     --nvidia             Enable NVIDIA GPU passthrough via CDI
                          Requires nvidia-container-toolkit on host

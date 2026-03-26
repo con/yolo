@@ -37,6 +37,7 @@ When running in a git worktree, `yolo` can detect and optionally bind mount the 
 - `--worktree=bind`: Automatically bind mounts the original repo
 - `--worktree=skip`: Skip bind mounting and continue normally
 - `--worktree=error`: Exit with error if running in a worktree
+- `--worktree=create:<branch>`: Create a new worktree and branch, then launch with bind mode
 
 ```bash
 # Prompt for bind mount decision (default)
@@ -50,6 +51,9 @@ yolo --worktree=skip
 
 # Disallow running in worktrees
 yolo --worktree=error
+
+# Create an isolated worktree for an agent to work in
+yolo --worktree=create:fix-issue-99
 ```
 
 **Security note**: Bind mounting the original repo exposes more files and allows modifications. The prompt helps prevent unintended access.
