@@ -3,7 +3,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # TODO: remove redesign-python after merge
+    branches: [main, redesign-python]
   pull_request:
     branches: [main]
 
