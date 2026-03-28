@@ -1,5 +1,6 @@
 #!/bin/bash
 # Install apt packages
-# Usage: apt.sh package1 package2 ...
+# Env: YOLO_APT_PACKAGES (space-separated, required)
 set -eu
-sudo apt-get install -y --no-install-recommends "$@"
+[ -z "${YOLO_APT_PACKAGES:-}" ] && { echo "apt.sh: YOLO_APT_PACKAGES required"; exit 1; }
+sudo apt-get install -y --no-install-recommends $YOLO_APT_PACKAGES

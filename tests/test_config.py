@@ -15,6 +15,12 @@ def _write_yaml(path: Path, data: dict):
     YAML().dump(data, path)
 
 
+@pytest.fixture(autouse=True)
+def _no_defaults(monkeypatch, tmp_path):
+    """Point DEFAULTS_CONFIG at a nonexistent file so builtin defaults don't interfere."""
+    monkeypatch.setattr("yolo.config.DEFAULTS_CONFIG", tmp_path / "no-defaults.yaml")
+
+
 # ── _merge ──────────────────────────────────────────────────────
 
 

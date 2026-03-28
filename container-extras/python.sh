@@ -1,7 +1,6 @@
 #!/bin/bash
 # Install Python via uv
-# Usage: python.sh [version]
-# Default: latest stable
+# Env: YOLO_PYTHON_VERSION (optional, default: latest stable)
 set -eu
 
 # Install uv if not present
@@ -10,16 +9,16 @@ if ! command -v uv &>/dev/null; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-VERSION="${1:-}"
-if [ -n "$VERSION" ]; then
-  uv python install "$VERSION"
+if [ -n "${YOLO_PYTHON_VERSION:-}" ]; then
+  uv python install "$YOLO_PYTHON_VERSION"
 else
   uv python install
 fi
 
 # Create python3 and python symlinks
-PYTHON_BIN="$(uv python find ${VERSION:+$VERSION} 2>/dev/null)"
+PYTHON_BIN="$(uv python find ${YOLO_PYTHON_VERSION:+$YOLO_PYTHON_VERSION} 2>/dev/null)"
 if [ -n "$PYTHON_BIN" ]; then
+  mkdir -p "$HOME/.local/bin"
   ln -sf "$PYTHON_BIN" "$HOME/.local/bin/python3"
   ln -sf "$PYTHON_BIN" "$HOME/.local/bin/python"
 fi

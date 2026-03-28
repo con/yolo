@@ -28,7 +28,6 @@ def _extras_search_path() -> list[Path]:
 
     paths.append(Path.cwd() / ".yolo" / "container-extras")
 
-    # .git/yolo/container-extras
     from yolo.config import _find_git_dir
 
     git_dir = _find_git_dir()
@@ -48,54 +47,32 @@ def _resolve_script(name: str, search_path: list[Path]) -> Path | None:
     return found
 
 
-def _parse_extras(extras_config: list) -> list[tuple[str, list[str]]]:
-    """Parse container-extras config into (script_name, args) pairs.
+def _parse_extra(entry) -> tuple[str, dict[str, str]]:
+    """Parse a single container-extras entry into (name, env_vars).
 
-    Config entries can be:
-      - "datalad"              → ("datalad", [])
-      - "apt:imagemagick"      → ("apt", ["imagemagick"])
-      - {"python": "3.12"}     → ("python", ["3.12"])
+    Entry must be a dict with a 'name' key, or a string (name only):
+      {"name": "apt", "packages": "zsh fzf"}  → ("apt", {"YOLO_APT_PACKAGES": "zsh fzf"})
+      {"name": "python", "version": "3.12"}   → ("python", {"YOLO_PYTHON_VERSION": "3.12"})
+      {"name": "datalad"}                      → ("datalad", {})
     """
-    parsed = []
-    for entry in extras_config:
-        if isinstance(entry, str):
-            if ":" in entry:
-                prefix, _, arg = entry.partition(":")
-                parsed.append((prefix, [arg]))
-            else:
-                parsed.append((entry, []))
-        elif isinstance(entry, dict):
-            for name, args in entry.items():
-                if isinstance(args, list):
-                    parsed.append((name, [str(a) for a in args]))
-                else:
-                    parsed.append((name, [str(args)]))
-    return parsed
+    if isinstance(entry, str):
+        return (entry, {})
 
+    if not isinstance(entry, dict) or "name" not in entry:
+        raise ValueError(f"Invalid container-extra: {entry!r} (must have 'name' key)")
 
-def _collect_apt_fallbacks(
-    parsed: list[tuple[str, list[str]]], search_path: list[Path]
-) -> list[tuple[str, list[str]]]:
-    """For bare names with no matching script, convert to apt calls."""
-    result = []
-    apt_packages = []
-
-    for name, args in parsed:
-        script = _resolve_script(name, search_path)
-        if script or args:
-            # Has a script or is a prefixed entry — flush any pending apt packages
-            if apt_packages:
-                result.append(("apt", apt_packages))
-                apt_packages = []
-            result.append((name, args))
+    name = entry["name"]
+    env_vars = {}
+    for key, value in entry.items():
+        if key == "name":
+            continue
+        env_key = f"YOLO_{name}_{key}".upper().replace("-", "_")
+        if isinstance(value, list):
+            env_vars[env_key] = " ".join(str(v) for v in value)
         else:
-            # No script found, no prefix — accumulate as apt package
-            apt_packages.append(name)
+            env_vars[env_key] = str(value)
 
-    if apt_packages:
-        result.append(("apt", apt_packages))
-
-    return result
+    return (name, env_vars)
 
 
 def assemble_build_context(extras_config: list) -> Path:
@@ -104,8 +81,6 @@ def assemble_build_context(extras_config: list) -> Path:
     Returns the path to the temp directory. Caller must clean up.
     """
     search_path = _extras_search_path()
-    parsed = _parse_extras(extras_config)
-    resolved = _collect_apt_fallbacks(parsed, search_path)
 
     build_dir = Path(tempfile.mkdtemp(prefix="yolo-build-"))
     scripts_dir = build_dir / "build" / "scripts"
@@ -113,7 +88,9 @@ def assemble_build_context(extras_config: list) -> Path:
 
     run_lines = ["#!/bin/bash", "set -eu"]
 
-    for name, args in resolved:
+    for entry in extras_config:
+        name, env_vars = _parse_extra(entry)
+
         script = _resolve_script(name, search_path)
         if script is None:
             raise FileNotFoundError(
@@ -125,9 +102,9 @@ def assemble_build_context(extras_config: list) -> Path:
         if not dest.exists():
             shutil.copy2(script, dest)
 
-        args_str = " ".join(args)
-        if args_str:
-            run_lines.append(f"bash /tmp/yolo-build/scripts/{name}.sh {args_str}")
+        env_prefix = " ".join(f'{k}="{v}"' for k, v in env_vars.items())
+        if env_prefix:
+            run_lines.append(f"{env_prefix} bash /tmp/yolo-build/scripts/{name}.sh")
         else:
             run_lines.append(f"bash /tmp/yolo-build/scripts/{name}.sh")
 

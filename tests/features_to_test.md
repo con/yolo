@@ -1,6 +1,7 @@
 # Features to test
 
 ## container-extras
+- [ ] extras-build to pytest not bash
 - [ ] apt.sh: installs packages, idempotent
 - [ ] python.sh: installs python, creates python/python3 symlinks, idempotent
 - [ ] python.sh: works with version arg and without

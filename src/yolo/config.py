@@ -8,10 +8,12 @@ from ruamel.yaml import YAML
 
 
 CONFIG_FILENAME = "config.yaml"
+DEFAULTS_CONFIG = Path(__file__).parent / "defaults" / CONFIG_FILENAME
 _yaml = YAML()
 _yaml.preserve_quotes = True
 
 # Precedence: later overrides earlier
+# 0. Package defaults (src/yolo/defaults/config.yaml)
 # 1. /etc/yolo/config.yaml
 # 2. ~/.config/yolo/config.yaml (XDG)
 # 3. .yolo/config.yaml (project, committed)
@@ -85,7 +87,7 @@ def _merge(base: dict, override: dict) -> dict:
 
 def load_config() -> dict:
     """Load and merge config from all locations."""
-    config = {}
+    config = _load_yaml(DEFAULTS_CONFIG)
     for path in _config_paths():
         layer = _load_yaml(path)
         if layer:

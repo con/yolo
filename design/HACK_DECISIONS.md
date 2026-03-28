@@ -41,7 +41,28 @@ Python because:
 - pytest for testing
 - click/typer for CLI
 
-## 5. Container runtime: podman-first
+## 5. Container-extras contract: one format, env vars
+
+Every entry uses the `name:` form. All params become env vars
+prefixed with `YOLO_{NAME}_{KEY}` uppercased:
+
+```yaml
+container-extras:
+  - name: apt
+    packages: [zsh, fzf]
+  - name: python
+    version: "3.12"
+  - name: datalad
+```
+
+→ `YOLO_APT_PACKAGES="zsh fzf" bash apt.sh`
+→ `YOLO_PYTHON_VERSION=3.12 bash python.sh`
+→ `bash datalad.sh`
+
+No prefix syntax (`apt:vim`), no simple dicts (`python: "3.12"`).
+One format, one contract. Scripts validate their own env vars.
+
+## 6. Container runtime: podman-first
 
 Podman, specifically for rootless behavior (`--userns=keep-id`). The
 architecture should allow other runtimes (docker, singularity/apptainer)
