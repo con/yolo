@@ -4,10 +4,12 @@ from pathlib import Path
 import os
 import subprocess
 
-import yaml
+from ruamel.yaml import YAML
 
 
 CONFIG_FILENAME = "config.yaml"
+_yaml = YAML()
+_yaml.preserve_quotes = True
 
 # Precedence: later overrides earlier
 # 1. /etc/yolo/config.yaml
@@ -64,8 +66,8 @@ def _load_yaml(path: Path) -> dict:
     """Load a YAML file, returning empty dict if missing or empty."""
     if not path.is_file():
         return {}
-    text = path.read_text()
-    return yaml.safe_load(text) or {}
+    data = _yaml.load(path)
+    return dict(data) if data else {}
 
 
 def _merge(base: dict, override: dict) -> dict:

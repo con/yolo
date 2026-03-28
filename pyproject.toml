@@ -9,7 +9,7 @@ description = "Run Claude Code safely in a container with full autonomy"
 requires-python = ">=3.11"
 dependencies = [
     "click",
-    "pyyaml",
+    "ruamel.yaml",
 ]
 
 [project.optional-dependencies]

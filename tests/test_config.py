@@ -4,9 +4,15 @@ import os
 from pathlib import Path
 
 import pytest
-import yaml
+from ruamel.yaml import YAML
 
 from yolo.config import _merge, _config_paths, _find_git_dir, load_config
+
+
+def _write_yaml(path: Path, data: dict):
+    """Dump a dict to a YAML file, creating parent dirs."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    YAML().dump(data, path)
 
 
 # ── _merge ──────────────────────────────────────────────────────
@@ -83,12 +89,10 @@ class TestLoadConfig:
     def test_loads_single_file(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
-        config_dir = tmp_path / ".yolo"
-        config_dir.mkdir()
-        (config_dir / "config.yaml").write_text(yaml.dump({
+        _write_yaml(tmp_path / ".yolo" / "config.yaml", {
             "nvidia": True,
             "container-extras": ["zsh"],
-        }))
+        })
         config = load_config()
         assert config["nvidia"] is True
         assert config["container-extras"] == ["zsh"]
@@ -96,40 +100,30 @@ class TestLoadConfig:
     def test_merges_layers(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        # User config
         xdg = tmp_path / "xdg"
-        (xdg / "yolo").mkdir(parents=True)
-        (xdg / "yolo" / "config.yaml").write_text(yaml.dump({
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+        _write_yaml(xdg / "yolo" / "config.yaml", {
             "nvidia": False,
             "container-extras": ["zsh"],
-        }))
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+        })
 
-        # Project config
-        (tmp_path / ".yolo").mkdir()
-        (tmp_path / ".yolo" / "config.yaml").write_text(yaml.dump({
+        _write_yaml(tmp_path / ".yolo" / "config.yaml", {
             "nvidia": True,
             "container-extras": ["python"],
-        }))
+        })
 
         config = load_config()
-        # Scalar: project overrides user
         assert config["nvidia"] is True
-        # List: appended
         assert config["container-extras"] == ["zsh", "python"]
 
     def test_git_yolo_config(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-xdg"))
 
-        # Create a git repo
-        git_dir = tmp_path / ".git"
-        git_dir.mkdir()
-        config_dir = git_dir / "yolo"
-        config_dir.mkdir()
-        (config_dir / "config.yaml").write_text(yaml.dump({
+        (tmp_path / ".git").mkdir()
+        _write_yaml(tmp_path / ".git" / "yolo" / "config.yaml", {
             "worktree": "bind",
-        }))
+        })
 
         config = load_config()
         assert config["worktree"] == "bind"
@@ -138,20 +132,14 @@ class TestLoadConfig:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-xdg"))
 
-        # Project config (.yolo/)
-        (tmp_path / ".yolo").mkdir()
-        (tmp_path / ".yolo" / "config.yaml").write_text(yaml.dump({
+        _write_yaml(tmp_path / ".yolo" / "config.yaml", {
             "worktree": "ask",
-        }))
+        })
 
-        # Git config (.git/yolo/) — higher precedence
-        git_dir = tmp_path / ".git"
-        git_dir.mkdir()
-        config_dir = git_dir / "yolo"
-        config_dir.mkdir()
-        (config_dir / "config.yaml").write_text(yaml.dump({
+        (tmp_path / ".git").mkdir()
+        _write_yaml(tmp_path / ".git" / "yolo" / "config.yaml", {
             "worktree": "skip",
-        }))
+        })
 
         config = load_config()
         assert config["worktree"] == "skip"

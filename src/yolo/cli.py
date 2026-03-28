@@ -3,6 +3,7 @@
 import click
 
 from yolo.config import load_config
+from yolo.builder import build as builder_build
 
 
 @click.group()
@@ -14,8 +15,8 @@ def main():
 def build():
     """Build the container image with configured extras."""
     config = load_config()
-    click.echo(f"Config: {config}")
-    click.echo("TODO: build")
+    extras = config.get("container-extras", [])
+    builder_build(extras)
 
 
 @main.command()
