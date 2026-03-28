@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "con-yolo"
+version = "0.1.0"
+description = "Run Claude Code safely in a container with full autonomy"
+requires-python = ">=3.11"
+dependencies = [
+    "click",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+yo = "yolo.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yolo"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
