@@ -4,6 +4,7 @@ import click
 
 from yolo.config import load_config
 from yolo.builder import build as builder_build
+from yolo.launcher import run as launcher_run
 
 
 @click.group()
@@ -22,6 +23,4 @@ def build():
 @main.command()
 def run():
     """Launch Claude Code in a container."""
-    config = load_config()
-    click.echo(f"Config: {config}")
-    click.echo("TODO: run")
+    launcher_run()
