@@ -5,8 +5,8 @@ set -x
 set -eu
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BUILD_CONTEXT="$(mktemp -d ${TMPDIR:-/tmp}/yolo-test-XXXXXXX)"
-trap "rm -rf $BUILD_CONTEXT" EXIT
+BUILD_CONTEXT="$(mktemp -d "${TMPDIR:-/tmp}"/yolo-test-XXXXXXX)"
+trap 'rm -rf $BUILD_CONTEXT' EXIT
 
 # Assemble build context
 mkdir -p "$BUILD_CONTEXT/build/scripts"

@@ -123,9 +123,12 @@ def build(extras_config: list) -> None:
     build_dir = assemble_build_context(extras_config)
     try:
         cmd = [
-            "podman", "build",
-            "-f", str(CONTAINERFILE_EXTRAS),
-            "-t", CUSTOM_IMAGE,
+            "podman",
+            "build",
+            "-f",
+            str(CONTAINERFILE_EXTRAS),
+            "-t",
+            CUSTOM_IMAGE,
             str(build_dir),
         ]
         print(f"Building {CUSTOM_IMAGE}...")

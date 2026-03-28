@@ -80,7 +80,9 @@ class TestAssembleBuildContext:
         extras_dir = self._make_extras_dir(tmp_path, {"apt": "#!/bin/bash"})
         monkeypatch.setattr("yolo.builder._extras_search_path", lambda: [extras_dir])
 
-        build_dir = assemble_build_context([{"name": "apt", "packages": ["zsh", "fzf"]}])
+        build_dir = assemble_build_context(
+            [{"name": "apt", "packages": ["zsh", "fzf"]}]
+        )
         try:
             content = (build_dir / "build" / "run.sh").read_text()
             assert 'YOLO_APT_PACKAGES="zsh fzf"' in content
@@ -101,10 +103,13 @@ class TestAssembleBuildContext:
             shutil.rmtree(build_dir)
 
     def test_copies_scripts(self, tmp_path, monkeypatch):
-        extras_dir = self._make_extras_dir(tmp_path, {
-            "apt": "#!/bin/bash",
-            "python": "#!/bin/bash",
-        })
+        extras_dir = self._make_extras_dir(
+            tmp_path,
+            {
+                "apt": "#!/bin/bash",
+                "python": "#!/bin/bash",
+            },
+        )
         monkeypatch.setattr("yolo.builder._extras_search_path", lambda: [extras_dir])
 
         config = [

@@ -15,6 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pre-commit",
 ]
 
 [project.scripts]

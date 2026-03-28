@@ -2,7 +2,6 @@
 
 from pathlib import Path
 import os
-import subprocess
 
 from ruamel.yaml import YAML
 
@@ -31,7 +30,7 @@ def _find_git_dir() -> Path | None:
             # Worktree — parse gitdir: line
             text = dot_git.read_text().strip()
             if text.startswith("gitdir: "):
-                gitdir = Path(text[len("gitdir: "):])
+                gitdir = Path(text[len("gitdir: ") :])
                 if not gitdir.is_absolute():
                     gitdir = current / gitdir
                 gitdir = gitdir.resolve()
@@ -78,7 +77,9 @@ def _merge(base: dict, override: dict) -> dict:
     for key, value in override.items():
         if key in merged and isinstance(merged[key], list) and isinstance(value, list):
             merged[key] = merged[key] + value
-        elif key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+        elif (
+            key in merged and isinstance(merged[key], dict) and isinstance(value, dict)
+        ):
             merged[key] = _merge(merged[key], value)
         else:
             merged[key] = value
