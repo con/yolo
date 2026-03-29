@@ -109,9 +109,11 @@ def _merge(base: dict, override: dict) -> dict:
     return merged
 
 
-def load_config() -> dict:
+def load_config(no_config: bool = False) -> dict:
     """Load and merge config from all locations."""
     config = _load_yaml(DEFAULTS_CONFIG)
+    if no_config:
+        return config
     for path in _config_paths():
         layer = _load_yaml(path)
         if layer:

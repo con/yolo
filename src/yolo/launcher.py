@@ -134,9 +134,10 @@ def run(
     worktree: str | None = None,
     nvidia: bool = False,
     container_args: list[str] | None = None,
+    no_config: bool = False,
 ) -> None:
     """Launch Claude Code in a podman container."""
-    config = load_config()
+    config = load_config(no_config=no_config)
     worktree_mode = worktree or config.get("worktree", "ask")
     use_nvidia = nvidia or config.get("nvidia", False)
 
