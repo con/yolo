@@ -8,8 +8,23 @@ from ruamel.yaml import YAML
 
 CONFIG_FILENAME = "config.yaml"
 DEFAULTS_CONFIG = Path(__file__).parent / "defaults" / CONFIG_FILENAME
+
+
+class _Replace:
+    """Wrapper that signals _merge to replace instead of append."""
+
+    def __init__(self, value):
+        self.value = value
+
+
+def _replace_constructor(loader, node):
+    value = loader.construct_sequence(node)
+    return _Replace(value)
+
+
 _yaml = YAML()
 _yaml.preserve_quotes = True
+_yaml.Constructor.add_constructor("!replace", _replace_constructor)
 
 # Precedence: later overrides earlier
 # 0. Package defaults (src/yolo/defaults/config.yaml)
@@ -72,10 +87,18 @@ def _load_yaml(path: Path) -> dict:
 
 
 def _merge(base: dict, override: dict) -> dict:
-    """Merge override into base. Lists append, dicts recurse, scalars replace."""
+    """Merge override into base. Lists append, dicts recurse, scalars replace.
+
+    Values tagged !replace in YAML are wrapped in _Replace and
+    always replace the base value instead of appending.
+    """
     merged = dict(base)
     for key, value in override.items():
-        if key in merged and isinstance(merged[key], list) and isinstance(value, list):
+        if isinstance(value, _Replace):
+            merged[key] = value.value
+        elif (
+            key in merged and isinstance(merged[key], list) and isinstance(value, list)
+        ):
             merged[key] = merged[key] + value
         elif (
             key in merged and isinstance(merged[key], dict) and isinstance(value, dict)

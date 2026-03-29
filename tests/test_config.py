@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from ruamel.yaml import YAML
 
-from yolo.config import _merge, _config_paths, load_config
+from yolo.config import _Replace, _merge, _config_paths, load_config
 
 
 def _write_yaml(path: Path, data: dict):
@@ -46,6 +46,14 @@ class TestMerge:
 
     def test_empty_override(self):
         assert _merge({"a": 1}, {}) == {"a": 1}
+
+    def test_replace_tag_overrides_list(self):
+        base = {"x": [1, 2, 3]}
+        override = {"x": _Replace([4, 5])}
+        assert _merge(base, override) == {"x": [4, 5]}
+
+    def test_replace_on_new_key(self):
+        assert _merge({}, {"x": _Replace([1])}) == {"x": [1]}
 
 
 # ── _config_paths ──────────────────────────────────────────────
@@ -166,3 +174,21 @@ class TestLoadConfig:
 
         config = load_config()
         assert config["worktree"] == "skip"
+
+    def test_replace_tag_in_yaml(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        xdg = tmp_path / "xdg"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+        _write_yaml(
+            xdg / "yolo" / "config.yaml",
+            {"extras": ["zsh", "fzf", "python"]},
+        )
+
+        # Write raw YAML with !replace tag (can't use _write_yaml for tags)
+        project_cfg = tmp_path / ".yolo" / "config.yaml"
+        project_cfg.parent.mkdir(parents=True, exist_ok=True)
+        project_cfg.write_text("extras: !replace\n  - datalad\n")
+
+        config = load_config()
+        assert config["extras"] == ["datalad"]
