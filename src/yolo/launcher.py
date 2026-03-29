@@ -40,6 +40,20 @@ def _build_volume_args(volumes: list[str]) -> list[str]:
     return args
 
 
+def _nvidia_args(enabled: bool) -> list[str]:
+    """Return podman args for NVIDIA GPU passthrough."""
+    if not enabled:
+        return []
+    cdi_paths = [Path("/etc/cdi/nvidia.yaml"), Path("/var/run/cdi/nvidia.yaml")]
+    if not any(p.exists() for p in cdi_paths):
+        print(
+            "Warning: NVIDIA CDI spec not found. GPU passthrough may not work.\n"
+            "  sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml",
+            file=sys.stderr,
+        )
+    return ["--device", "nvidia.com/gpu=all", "--security-opt", "label=disable"]
+
+
 def _detect_worktree() -> Path | None:
     """If cwd is a git worktree, return the original repo dir."""
     dot_git = Path.cwd() / ".git"
@@ -107,11 +121,13 @@ def run(
     entrypoint: str | None = None,
     image_name: str | None = None,
     worktree: str | None = None,
-    podman_args: list[str] | None = None,
+    nvidia: bool = False,
+    container_args: list[str] | None = None,
 ) -> None:
     """Launch Claude Code in a podman container."""
     config = load_config()
     worktree_mode = worktree or config.get("worktree", "ask")
+    use_nvidia = nvidia or config.get("nvidia", False)
 
     home = Path.home()
     cwd = Path.cwd()
@@ -143,7 +159,8 @@ def run(
         *_build_volume_args(config_volumes),
         *_build_volume_args(extra_volumes or []),
         *_worktree_volume(worktree_mode),
-        *(podman_args or []),
+        *_nvidia_args(use_nvidia),
+        *(container_args or []),
         "-w",
         str(cwd),
         "-e",

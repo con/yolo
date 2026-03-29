@@ -9,6 +9,7 @@ from yolo.launcher import (
     _build_volume_args,
     _detect_worktree,
     _expand_volume,
+    _nvidia_args,
     _worktree_volume,
     run,
 )
@@ -130,6 +131,18 @@ class TestRun:
         mock_tag.assert_called_with("heavy")
         cmd = mock_run.call_args[0][0]
         assert "yolo-myproject-heavy" in cmd
+
+
+class TestNvidiaArgs:
+    def test_disabled(self):
+        assert _nvidia_args(False) == []
+
+    def test_enabled(self):
+        result = _nvidia_args(True)
+        assert "--device" in result
+        assert "nvidia.com/gpu=all" in result
+        assert "--security-opt" in result
+        assert "label=disable" in result
 
 
 class TestDetectWorktree:

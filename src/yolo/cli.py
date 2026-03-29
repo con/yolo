@@ -34,12 +34,18 @@ def build(image):
     help="Git worktree handling mode",
 )
 @click.option(
-    "--podman-arg",
+    "--nvidia",
+    is_flag=True,
+    default=False,
+    help="Enable NVIDIA GPU passthrough via CDI",
+)
+@click.option(
+    "--container-arg",
     multiple=True,
-    help="Pass raw arg to podman run (repeatable)",
+    help="Pass raw arg to container engine (repeatable)",
 )
 @click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
-def run(volume, entrypoint, image, worktree, podman_arg, claude_args):
+def run(volume, entrypoint, image, worktree, nvidia, container_arg, claude_args):
     """Launch Claude Code in a container."""
     launcher_run(
         list(claude_args),
@@ -47,5 +53,6 @@ def run(volume, entrypoint, image, worktree, podman_arg, claude_args):
         entrypoint=entrypoint,
         image_name=image,
         worktree=worktree,
-        podman_args=list(podman_arg),
+        nvidia=nvidia,
+        container_args=list(container_arg),
     )
