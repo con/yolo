@@ -21,7 +21,10 @@ def build():
 
 
 @main.command(context_settings={"ignore_unknown_options": True})
+@click.option(
+    "-v", "--volume", multiple=True, help="Extra bind mount (host:container[:opts])"
+)
 @click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
-def run(claude_args):
+def run(volume, claude_args):
     """Launch Claude Code in a container."""
-    launcher_run(list(claude_args))
+    launcher_run(list(claude_args), extra_volumes=list(volume))

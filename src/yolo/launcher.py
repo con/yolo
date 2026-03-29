@@ -4,9 +4,25 @@ import os
 import subprocess
 from pathlib import Path
 
+from yolo.config import load_config
 
-def run(claude_args: list[str] | None = None) -> None:
+
+def _build_volume_args(volumes: list[str]) -> list[str]:
+    """Turn a list of volume specs into podman -v args."""
+    # TODO: rename to mounts? these are bind mounts, not docker volumes
+    args = []
+    for vol in volumes:
+        args.extend(["-v", vol])
+    return args
+
+
+def run(
+    claude_args: list[str] | None = None,
+    extra_volumes: list[str] | None = None,
+) -> None:
     """Launch Claude Code in a podman container."""
+    config = load_config()
+
     home = Path.home()
     cwd = Path.cwd()
     claude_dir = home / ".claude"
@@ -16,6 +32,8 @@ def run(claude_args: list[str] | None = None) -> None:
     name = name.replace(str(home) + "/", "")
     name = "".join(c if c.isalnum() or c in "._-" else "_" for c in name)
     name = name.lstrip("._")
+
+    config_volumes = config.get("volumes", [])
 
     cmd = [
         "podman",
@@ -32,6 +50,8 @@ def run(claude_args: list[str] | None = None) -> None:
         f"{home}/.gitconfig:/tmp/.gitconfig:ro,z",
         "-v",
         f"{cwd}:{cwd}:z",
+        *_build_volume_args(config_volumes),
+        *_build_volume_args(extra_volumes or []),
         "-w",
         str(cwd),
         "-e",

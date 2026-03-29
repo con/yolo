@@ -1,5 +1,9 @@
 **Before writing files, check if CLAUDE.md, design docs, or tests need updating to reflect your changes.**
 
+## Python
+
+- Always import at the top of the file unless there's a good reason not to.
+
 ## Project
 
 yolo runs Claude Code safely in a rootless Podman container with full autonomy.
