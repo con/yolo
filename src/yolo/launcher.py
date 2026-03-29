@@ -107,6 +107,7 @@ def run(
     entrypoint: str | None = None,
     image_name: str | None = None,
     worktree: str | None = None,
+    podman_args: list[str] | None = None,
 ) -> None:
     """Launch Claude Code in a podman container."""
     config = load_config()
@@ -142,6 +143,7 @@ def run(
         *_build_volume_args(config_volumes),
         *_build_volume_args(extra_volumes or []),
         *_worktree_volume(worktree_mode),
+        *(podman_args or []),
         "-w",
         str(cwd),
         "-e",
