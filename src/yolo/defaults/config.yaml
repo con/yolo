@@ -2,6 +2,10 @@
 # Default yolo configuration
 # Override any of these in your user or project config
 
+env:
+  - CLAUDE_CODE_OAUTH_TOKEN
+  - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+
 images:
   - name: default
     extras:

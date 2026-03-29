@@ -54,6 +54,17 @@ def _nvidia_args(enabled: bool) -> list[str]:
     return ["--device", "nvidia.com/gpu=all", "--security-opt", "label=disable"]
 
 
+def _build_env_args(env_config: list[str]) -> list[str]:
+    """Build -e args from env config.
+
+    Bare name = passthrough from host. KEY=VALUE = set explicitly.
+    """
+    args = []
+    for entry in env_config:
+        args.extend(["-e", entry])
+    return args
+
+
 def _detect_worktree() -> Path | None:
     """If cwd is a git worktree, return the original repo dir."""
     dot_git = Path.cwd() / ".git"
@@ -167,8 +178,7 @@ def run(
         f"CLAUDE_CONFIG_DIR={claude_dir}",
         "-e",
         "GIT_CONFIG_GLOBAL=/tmp/.gitconfig",
-        "-e",
-        "CLAUDE_CODE_OAUTH_TOKEN",
+        *_build_env_args(config.get("env", [])),
         image_tag(image_name or "default"),
     ]
 
