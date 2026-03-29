@@ -1,30 +1,69 @@
 ---
 # yolo configuration
-# Docs: SPEC.md | Locations: /etc/yolo, ~/.config/yolo, .yolo/, .git/yolo/
-# Later files override earlier. Lists append. Use !replace to override a list.
+#
+# Config is loaded from these locations (later overrides earlier):
+#   0. Package defaults (this file)
+#   1. /etc/yolo/config.yaml        — system/org
+#   2. ~/.config/yolo/config.yaml   — user preferences
+#   3. .yolo/config.yaml            — project (committed to git)
+#   4. .git/yolo/config.yaml        — project (local, untracked)
+#
+# Merge rules:
+#   - Lists: append across layers
+#   - Dicts: recurse and merge
+#   - Scalars: later value wins
+#   - Use !replace to override a list instead of appending:
+#       volumes: !replace
+#         - ~/only-this
+#
+# Run `yo init` to generate a copy of this file in your project.
 
-# Env vars passed into the container
+# ── Env vars ────────────────────────────────────────────────
+# Passed into the container.
 # Bare name = passthrough from host. KEY=VALUE = set explicitly.
 env:
   - CLAUDE_CODE_OAUTH_TOKEN
   - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
-# Extra bind mounts (shorthand: ~/path, ~/path::ro, or full podman syntax)
+# ── Volumes ─────────────────────────────────────────────────
+# Extra bind mounts. Shorthand:
+#   ~/data           → ~/data:~/data:z         (1-to-1)
+#   ~/data::ro       → ~/data:~/data:ro        (1-to-1, read-only)
+#   /host:/container → /host:/container:z      (partial, :z added)
+#   /h:/c:opts       → /h:/c:opts              (full, unchanged)
 # volumes:
 #   - ~/data
 #   - ~/projects::ro
 
+# ── Launcher ────────────────────────────────────────────────
 # Git worktree handling: ask, bind, skip, error
 # worktree: ask
 
 # NVIDIA GPU passthrough via CDI
 # nvidia: false
 
-# Container images to build
+# ── Images ──────────────────────────────────────────────────
+# Container images to build. Each has a name and a list of extras.
+#
+# from: override the base image (default: yolo-base).
+#   Any image reference works: yolo-base, ghcr.io/org/img:tag, etc.
+#
+# extras: scripts that run at build time to install tools.
+#   Each entry needs a 'name' that maps to a .sh script.
+#   Additional keys become YOLO_{NAME}_{KEY} env vars for the script.
+#
+#   Script search path (later wins):
+#     <package>/container-extras/   — builtins shipped with yolo
+#     ~/.config/yolo/container-extras/   — user scripts
+#     .yolo/container-extras/       — project scripts (committed)
+#     .git/yolo/container-extras/   — project scripts (local)
+#
+#   Scripts must be self-contained bash. They validate their own
+#   env vars and fail with a clear message if something is missing.
+
 images:
   - name: default
     # from: yolo-base
-    # or any image: ghcr.io/org/image:tag, docker.io/lib/python:3.12
     extras:
       - name: apt
         packages:
