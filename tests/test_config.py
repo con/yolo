@@ -55,6 +55,67 @@ class TestMerge:
     def test_replace_on_new_key(self):
         assert _merge({}, {"x": _Replace([1])}) == {"x": [1]}
 
+    @pytest.mark.xfail(reason="TODO: implement recursive named-list merge")
+    def test_deep_named_list_merge(self):
+        base = {
+            "images": [
+                {
+                    "name": "default",
+                    "extras": [
+                        {"name": "apt", "packages": ["zsh", "fzf"]},
+                        {"name": "python", "version": "3.12"},
+                    ],
+                },
+            ],
+        }
+        override = {
+            "images": [
+                {
+                    "name": "default",
+                    "extras": [
+                        {"name": "apt", "packages": ["shellcheck"]},
+                    ],
+                },
+            ],
+        }
+        result = _merge(base, override)
+        # Should merge the "default" image, and merge "apt" extras
+        assert len(result["images"]) == 1
+        apt_entry = next(e for e in result["images"][0]["extras"] if e["name"] == "apt")
+        assert apt_entry["packages"] == ["zsh", "fzf", "shellcheck"]
+        # python should still be there
+        assert any(e["name"] == "python" for e in result["images"][0]["extras"])
+
+    @pytest.mark.xfail(
+        reason="TODO: implement recursive named-list merge with !replace"
+    )
+    def test_deep_replace_in_named_list(self):
+        base = {
+            "images": [
+                {
+                    "name": "default",
+                    "extras": [
+                        {"name": "apt", "packages": ["zsh", "fzf"]},
+                    ],
+                },
+            ],
+        }
+        override = {
+            "images": [
+                {
+                    "name": "default",
+                    "extras": _Replace(
+                        [
+                            {"name": "datalad"},
+                        ]
+                    ),
+                },
+            ],
+        }
+        result = _merge(base, override)
+        assert len(result["images"]) == 1
+        assert result["images"][0]["extras"] == [{"name": "datalad"}]
+
 
 # ── _config_paths ──────────────────────────────────────────────
 
