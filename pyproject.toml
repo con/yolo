@@ -26,3 +26,6 @@ packages = ["src/yolo"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: slow tests that need podman (deselect with -m 'not integration')",
+]
