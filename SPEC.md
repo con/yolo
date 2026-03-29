@@ -1,236 +1,176 @@
-# YOLO Redesign Hackpad
+# YOLO Specification
 
-Working design notes from brainstorming session 2026-03-28.
-This is a living document — ideas, not commitments.
-Locked decisions live in `HACK_DECISIONS.md`.
+Working spec for the Python rewrite. Locked decisions in `design/HACK_DECISIONS.md`.
 
-## Core problem
+## Overview
 
-The current architecture has no extension points. Every new capability —
-a tool in the image, a worktree strategy, a container runtime — requires
-modifying the core. This is unsustainable.
+yolo runs Claude Code inside a rootless Podman container with
+`--dangerously-skip-permissions`. The container is the sandbox — no
+permission prompts needed.
 
-The `--extras` pattern is the proof: every new tool is a PR to the
-Dockerfile, a flag in `setup-yolo.sh`, a debate about what belongs in the
-base image. The architecture forces everything through the center.
+## Components
 
-**The goal is an architecture where the core is small and stable, and
-growth happens at the edges.** Adding datalad support, a new worktree
-strategy, or singularity as a runtime should not require touching the core.
-
-## What is yolo?
-
-Two core components, plus an installer:
-
-1. **Launcher** — assemble mounts/env/command, invoke the container runtime
-2. **Environment builder** — resolve features, build a derived image
-3. **Installer** (`setup-yolo.sh` successor) — deferred for now
-
-These are decoupled. The launcher doesn't know how the image was built.
-The builder doesn't know how the image will be run.
-
-## User stories
-
-**"I just want to run it"**
-Scientist clones a repo, types `yolo`, it works. No build step, no config
-editing, no container knowledge required.
-
-**"I need datalad too"**
-Scientist adds `datalad` to a list in project config. A pre-written install
-script runs behind the scenes. They didn't need to know what that script does.
-
-**"I do worktrees differently"**
-Yarik has opinions about worktree layout. He drops a script into a known
-location that overrides the default worktree behavior. No fork needed.
-
-**"Here's a repo, it just works"**
-A PI commits yolo config to a repo. Collaborators clone it, run `yolo`, and
-the environment is ready — right features, right mounts, right setup.
-
----
-
-## Features (environment builder)
-
-Composable install units. Users compose by name, yolo resolves and runs them.
-
-### Syntax (YAML config)
-
-```yaml
-features:
-  - datalad          # finds install_datalad.sh in feature path → runs it
-  - ffmpeg           # no script found → falls back to apt
-  - apt:imagemagick  # explicit: apt-get install
-  - uv:con-duct      # explicit: uv tool install
-  - pip:numpy        # explicit: pip install
-```
-
-### Resolution for bare names
-
-1. Search the feature path for `install_<name>.sh` → run it if found
-2. No script? → `apt-get install -y <name>`
-
-Prefixed names (`apt:`, `uv:`, `pip:`) skip the search, go straight to the
-package manager script with args.
-
-Curated scripts only need to exist where the install is non-trivial (datalad
-needs extra `--with` flags, CUDA needs apt sources modified, playwright needs
-both system deps and npm).
-
-### Feature path (resolution order)
-
-```
-<con-yolo package>/features/ ← ships with yolo (builtins)
-~/.config/yolo/features/     ← user local
-.yolo/features/              ← project (committed)
-.git/yolo/features/          ← project (local/untracked)
-```
-
-Later wins if names collide.
-
-### Build mechanism
-
-Static Dockerfiles, dynamic build context. No Dockerfile generation.
-
-- `Dockerfile.base` — the base image (Claude Code + core tools)
-- `Dockerfile.custom` — layers features on top of base
-
-`Dockerfile.custom` is dumb — it copies in a build context and runs
-a manifest script. yolo assembles the build context:
-
-```
-build/
-  scripts/
-    install_datalad.sh    ← resolved from feature path
-    apt.sh                ← builtin package manager script
-    uv.sh                 ← builtin package manager script
-  run.sh                  ← generated manifest
-```
-
-`run.sh` is just:
-```bash
-bash /tmp/yolo-build/scripts/install_datalad.sh
-bash /tmp/yolo-build/scripts/apt.sh imagemagick visidata
-bash /tmp/yolo-build/scripts/uv.sh con-duct
-```
-
-Package manager scripts are simple. `apt.sh` is literally:
-```bash
-apt-get install -y "$@"
-```
-
-`apt-get update` happens once in the Dockerfile before running scripts,
-not in each script.
-
-### Build-time vs run-time
-
-- **Primary: build-time.** Features baked into the derived image.
-- **Secondary: run-time.** For things like `pip install -e .` that are
-  inherently per-session. Configured separately (e.g. `startup` key).
-- **Explicit rebuild.** No auto-detection of staleness. User runs
-  `yolo --rebuild` when they change features.
-
-### OPEN: Sharp edges
-
-- What if a bare name matches a script AND is a valid apt package?
-  (Script wins — is that always right?)
-- Is the prefix syntax extensible enough? (`npm:`, `cargo:`, etc.)
-- Error messages when an install fails — which script broke?
-
----
-
-## Hooks / extensible launch behavior
-
-Same resolution pattern as features, same override mechanism.
-A hook is just a script in a known location that runs at a specific phase.
-
-### Unified with features via phases
-
-```
-.yolo/
-  build/              ← feature install scripts (build phase)
-  launch/             ← runtime behavior scripts (launch phase)
-  config.yaml         ← the thing users actually edit
-```
-
-No separate "hook framework." If a script with a known name exists,
-it runs at the right phase. The phase is implied by location.
-
-### Hook points (launch phase)
-
-| Hook            | What it does by default        | Why someone might override        |
-|-----------------|--------------------------------|-----------------------------------|
-| `worktree`      | detect, prompt/bind/skip/error | custom worktree layout/naming     |
-| `volumes`       | assemble the mount list        | SSH keys, conditional mounts      |
-| `container-name`| `$PWD-$$` sanitized            | org naming conventions            |
-| `pre-launch`    | nothing                        | env setup, credential injection   |
-| `post-exit`     | nothing                        | cleanup, sync, notifications      |
-| `entrypoint`    | `claude --dangerously-skip-permissions` | different agent, wrapper |
-
-### OPEN: Hook contract
-
-- Override vs wrap? Does a user hook replace the default or run around it?
-- Data return: how does a hook communicate back (e.g. "add these mounts")?
-- We want to stay on the simple side of: `exit code → stdout → JSON → plugin API`
-
----
-
-## Launcher
-
-The launcher speaks in **intent**, not container runtime flags.
-
-### Vocabulary (YAML config keys)
-
-```yaml
-volumes:
-  - ~/projects
-  - ~/data::ro
-
-nvidia: true
-worktree: ask
-```
-
-NOT raw podman flags. Intent is portable across runtimes.
-
-The launcher's job:
-1. **Mounts** — default secure set + user additions from config
-2. **Env vars** — default set + user additions
-3. **Command** — claude with skip-permissions, or custom entrypoint
-4. **Translate** — turn intent into `podman run` invocation
-
-Raw passthrough (`--`) exists as an escape hatch, not the normal path.
+| Component | Path | Purpose |
+|-----------|------|---------|
+| CLI | `src/yolo/cli.py` | `yo build`, `yo run` |
+| Config | `src/yolo/config.py` | YAML loading from 5 locations |
+| Builder | `src/yolo/builder.py` | Resolves extras, assembles build context, invokes podman |
+| Launcher | `src/yolo/launcher.py` | Assembles podman run command |
+| Base image | `images/Containerfile.base` | Minimal debian + Claude Code |
+| Extras image | `images/Containerfile.extras` | Layers container-extras on base |
+| Scripts | `container-extras/` | Composable install scripts |
+| Defaults | `src/yolo/defaults/config.yaml` | Default image config |
 
 ---
 
 ## Config
 
-See `HACK_DECISIONS.md` for locked decisions on format and locations.
+### Format
 
-### Layering (later overrides earlier)
+YAML. Not sourced bash — declarative only to prevent prompt injection
+across sessions.
 
-1. `/etc/yolo/config.yaml` — system-wide (org defaults)
-2. `~/.config/yolo/config.yaml` — user preferences
-3. `.yolo/config.yaml` — project, committed (shareable)
-4. `.git/yolo/config.yaml` — project, local (personal)
-5. CLI args
+### Locations (later overrides earlier)
 
-### OPEN: Array merging vs replacement
+| # | Path | Scope |
+|---|------|-------|
+| 0 | Package defaults | Builtin |
+| 1 | `/etc/yolo/config.yaml` | System/org |
+| 2 | `~/.config/yolo/config.yaml` | User |
+| 3 | `.yolo/config.yaml` | Project (committed) |
+| 4 | `.git/yolo/config.yaml` | Project (local) |
 
-With 4 config layers, does `volumes: [~/data]` in project config
-replace or append to `volumes: [~/tools]` in user config?
+CLI args override everything.
+
+### Merge rules
+
+- **Lists**: append
+- **Dicts**: recurse
+- **Scalars**: replace
+- **`!replace` tag**: TBD — per-key override to replace instead of append
 
 ---
 
-## Context injection
+## Images
 
-yolo generates a context file bound into the container at launch,
-telling Claude about its environment:
+Images are defined in config as a named list. Each image has a name,
+optional `from` (base image), and a list of extras to install.
 
-- "You're in a yolo container"
-- "Mounted volumes: X, Y, Z"
-- "You cannot: access SSH keys, write outside mounted volumes"
-- "Installed features: datalad, ffmpeg"
+```yaml
+images:
+  - name: default
+    extras:
+      - name: apt
+        packages: [zsh, fzf, shellcheck]
+      - name: python
+        version: "3.12"
 
-Helps Claude work effectively AND respects boundaries.
+  - name: myproject:heavy
+    from: myproject
+    extras:
+      - name: cuda
+```
+
+### Image naming
+
+Image tags are derived from the project dirname + image name:
+`yolo-<project>-<name>`. Project dirname comes from git toplevel or cwd.
+
+### `from` key
+
+Overrides the `BASE_IMAGE` build arg in `Containerfile.extras`. Podman
+handles composition natively via `FROM` — no inheritance system needed.
+Default is `yolo-base`.
+
+### No image inheritance in config
+
+Images do not inherit extras from each other through config merging.
+Composition is done through podman's `FROM` mechanism. If image B
+needs everything from image A plus more, set `from: <image-a-tag>`
+and podman layers B on top.
+
+---
+
+## Container-extras
+
+### Contract
+
+Every extras entry uses the `name:` form. Additional params become
+environment variables prefixed with `YOLO_{SCRIPTNAME}_{KEY}` (uppercased,
+hyphens replaced with underscores).
+
+```yaml
+- name: apt
+  packages: [zsh, fzf]
+- name: python
+  version: "3.12"
+- name: datalad
+```
+
+Becomes:
+- `YOLO_APT_PACKAGES="zsh fzf" bash apt.sh`
+- `YOLO_PYTHON_VERSION=3.12 bash python.sh`
+- `bash datalad.sh`
+
+### Script resolution
+
+Search path (later wins):
+
+1. `<package>/container-extras/` — builtins
+2. `~/.config/yolo/container-extras/` — user
+3. `.yolo/container-extras/` — project (committed)
+4. `.git/yolo/container-extras/` — project (local)
+
+### Script requirements
+
+- Self-contained bash scripts
+- Validate own env vars, fail with clear message if missing
+- No cross-script dependencies (duplicate is OK, idempotent is better)
+
+### Build mechanism
+
+Static Containerfiles, dynamic build context. No Dockerfile generation.
+
+`Containerfile.base`: minimal debian + Claude Code + tini + essential tools.
+
+`Containerfile.extras`: `FROM ${BASE_IMAGE}`, copies build context,
+runs `run.sh` manifest. The manifest is the only generated file — a
+list of `bash script.sh` calls with env var prefixes.
+
+---
+
+## Launcher
+
+### Default behavior
+
+Mounts claude config (rw), gitconfig (ro), workspace (rw). Sets up
+env vars. Runs `claude --dangerously-skip-permissions`.
+
+### Config keys
+
+```yaml
+volumes:
+  - /host/path:/container/path:opts
+```
+
+### CLI flags
+
+| Flag | Description |
+|------|-------------|
+| `-v, --volume` | Extra bind mount (repeatable) |
+| `--entrypoint` | Override container command |
+| `--image` | Run a specific named image |
+| `[CLAUDE_ARGS]` | Passed through to claude |
+
+### Entrypoint override
+
+Custom entrypoint skips `--dangerously-skip-permissions`.
+TODO: make skip_permissions a separate config value.
+
+### Container naming
+
+`<cwd>-<pid>` with `$HOME/` stripped and non-alphanumeric chars
+replaced with `_`.
 
 ---
 
@@ -240,28 +180,29 @@ Helps Claude work effectively AND respects boundaries.
 
 Secure by default. Flexible enough to weaken deliberately.
 
-### Escape vector: config as attack surface
+- No SSH keys mounted
+- No cloud credentials accessible
+- Workspace mounted read-write
+- Network unrestricted (known gap)
 
-Claude has write access to `.yolo/config.yaml` (in the workspace).
-Could modify config to mount sensitive directories on next launch.
-Between-session escape, not within-session.
+### Config as attack surface
 
-Mitigations under consideration:
+Claude can write to `.yolo/config.yaml` inside the container.
+Modified config takes effect on next launch — between-session escape
+vector. Mitigations under consideration (none implemented):
+
 - Mount `.yolo/` read-only inside container
-- Diff-on-launch: show config changes, ask to confirm
-- Exit warning if `.yolo/` was modified during session
-- Trust prompt for committed config in unfamiliar repos
-- Document honestly, don't pretend it's fully solved
+- Diff-on-launch warning
+- Exit warning if config modified during session
 
 ---
 
 ## Still open
 
-- Image naming/tagging strategy for derived images
-- Singularity/apptainer runtime abstraction (#33)
-- Registry story (GHCR for base image?) — deferred, build locally for now
-- How extensions repo works (if at all)
-- Installer redesign (setup-yolo.sh successor) — deferred
-- Organize security-reports/ (generated by yolo session test run)
-- `!replace` YAML tag for per-key merge vs replace semantics
-- Default container-extras config (ships with package)
+- Singularity/apptainer runtime abstraction
+- Registry story (GHCR for base image)
+- `!replace` YAML tag for per-key merge override
+- Hooks / extensible launch behavior
+- Context injection (tell Claude about its environment)
+- Installer redesign (setup-yolo.sh successor)
+- `dangerously_skip_permissions` as separate config value
