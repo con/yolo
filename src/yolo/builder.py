@@ -132,7 +132,54 @@ def assemble_build_context(extras_config: list) -> Path:
     return build_dir
 
 
-def build_image(image_entry: dict) -> str:
+def _image_exists(tag: str) -> bool:
+    """Check if a podman image exists locally."""
+    result = subprocess.run(
+        ["podman", "image", "exists", tag],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+def _build_base() -> None:
+    """Build yolo-base from Containerfile.base."""
+    containerfile = REPO_ROOT / "images" / "Containerfile.base"
+    print(f"Building {BASE_IMAGE}...")
+    subprocess.run(
+        [
+            "podman",
+            "build",
+            "-f",
+            str(containerfile),
+            "-t",
+            BASE_IMAGE,
+            str(REPO_ROOT / "images"),
+        ],
+        check=True,
+    )
+    print(f"Built {BASE_IMAGE}")
+
+
+def _ensure_base(base: str, images_config: list) -> None:
+    """Ensure a base image exists. Build it if we know how."""
+    if _image_exists(base):
+        return
+
+    if base == BASE_IMAGE:
+        _build_base()
+        return
+
+    # Check if it's an image defined in our config
+    for entry in images_config:
+        name = entry.get("name", "default")
+        if image_tag(name) == base:
+            build_image(entry, images_config)
+            return
+
+    raise RuntimeError(f"Base image '{base}' not found and not defined in config")
+
+
+def build_image(image_entry: dict, images_config: list | None = None) -> str:
     """Build a single image from an images list entry. Returns the tag."""
     name = image_entry.get("name", "default")
     extras = image_entry.get("extras", [])
@@ -143,6 +190,7 @@ def build_image(image_entry: dict) -> str:
         return tag
 
     base = image_entry.get("from", BASE_IMAGE)
+    _ensure_base(base, images_config or [])
 
     build_dir = assemble_build_context(extras)
     try:
@@ -176,4 +224,4 @@ def build(images_config: list, only: str | None = None) -> None:
         name = entry.get("name", "default")
         if only and name != only:
             continue
-        build_image(entry)
+        build_image(entry, images_config)
