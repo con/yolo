@@ -199,6 +199,7 @@ vector. Mitigations under consideration (none implemented):
 
 ## Still open
 
+- pip.sh may be unnecessary if project venv is bound in
 - Singularity/apptainer runtime abstraction
 - Registry story (GHCR for base image)
 - `!replace` YAML tag for per-key merge override

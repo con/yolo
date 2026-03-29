@@ -1,7 +1,9 @@
 """Launch Claude Code in a container."""
 
 import os
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 from yolo.builder import image_tag
@@ -10,11 +12,71 @@ from yolo.config import load_config
 
 def _build_volume_args(volumes: list[str]) -> list[str]:
     """Turn a list of volume specs into podman -v args."""
-    # TODO: rename to mounts? these are bind mounts, not docker volumes
     args = []
     for vol in volumes:
         args.extend(["-v", vol])
     return args
+
+
+def _detect_worktree() -> Path | None:
+    """If cwd is a git worktree, return the original repo dir."""
+    dot_git = Path.cwd() / ".git"
+
+    if dot_git.is_symlink():
+        gitdir_path = dot_git.resolve()
+    elif dot_git.is_file():
+        text = dot_git.read_text().strip()
+        if not text.startswith("gitdir: "):
+            return None
+        gitdir_path = Path(text[len("gitdir: ") :])
+        if not gitdir_path.is_absolute():
+            gitdir_path = Path.cwd() / gitdir_path
+        gitdir_path = gitdir_path.resolve()
+    else:
+        return None
+
+    match = re.match(r"^(.+/\.git)/worktrees/", str(gitdir_path))
+    if not match:
+        return None
+
+    original_repo = Path(match.group(1)).parent
+    if original_repo == Path.cwd():
+        return None
+
+    return original_repo
+
+
+def _worktree_volume(mode: str) -> list[str]:
+    """Handle worktree detection and return extra volume args."""
+    original = _detect_worktree()
+    if original is None:
+        return []
+
+    if mode == "error":
+        print(
+            f"Error: Running in a git worktree is not allowed (original: {original})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    elif mode == "skip":
+        return []
+    elif mode == "bind":
+        return ["-v", f"{original}:{original}:z"]
+    elif mode == "ask":
+        print(
+            f"Detected git worktree. Original repository: {original}", file=sys.stderr
+        )
+        print(
+            "Bind mounting the original repo allows git operations but may expose unintended files.",
+            file=sys.stderr,
+        )
+        reply = input("Bind mount original repository? [y/N] ")
+        if reply.strip().lower() == "y":
+            return ["-v", f"{original}:{original}:z"]
+        return []
+    else:
+        print(f"Warning: unknown worktree mode '{mode}', skipping", file=sys.stderr)
+        return []
 
 
 def run(
@@ -22,9 +84,11 @@ def run(
     extra_volumes: list[str] | None = None,
     entrypoint: str | None = None,
     image_name: str | None = None,
+    worktree: str | None = None,
 ) -> None:
     """Launch Claude Code in a podman container."""
     config = load_config()
+    worktree_mode = worktree or config.get("worktree", "ask")
 
     home = Path.home()
     cwd = Path.cwd()
@@ -55,6 +119,7 @@ def run(
         f"{cwd}:{cwd}:z",
         *_build_volume_args(config_volumes),
         *_build_volume_args(extra_volumes or []),
+        *_worktree_volume(worktree_mode),
         "-w",
         str(cwd),
         "-e",

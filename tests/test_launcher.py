@@ -1,10 +1,11 @@
 """Tests for yolo launcher: command assembly."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from yolo.launcher import _build_volume_args, run
+from yolo.launcher import _build_volume_args, _detect_worktree, _worktree_volume, run
 
 
 @pytest.fixture(autouse=True)
@@ -102,3 +103,59 @@ class TestRun:
         mock_tag.assert_called_with("heavy")
         cmd = mock_run.call_args[0][0]
         assert "yolo-myproject-heavy" in cmd
+
+
+class TestDetectWorktree:
+    def test_not_a_worktree(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".git").mkdir()
+        assert _detect_worktree() is None
+
+    def test_no_git_at_all(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert _detect_worktree() is None
+
+    def test_detects_worktree(self, tmp_path, monkeypatch):
+        # Set up fake worktree structure
+        original = tmp_path / "original"
+        original.mkdir()
+        git_dir = original / ".git"
+        git_dir.mkdir()
+        worktrees = git_dir / "worktrees" / "wt1"
+        worktrees.mkdir(parents=True)
+
+        wt = tmp_path / "worktree1"
+        wt.mkdir()
+        (wt / ".git").write_text(f"gitdir: {worktrees}")
+        monkeypatch.chdir(wt)
+
+        assert _detect_worktree() == original
+
+
+class TestWorktreeVolume:
+    def test_skip_no_worktree(self):
+        with patch("yolo.launcher._detect_worktree", return_value=None):
+            assert _worktree_volume("ask") == []
+
+    def test_bind_mounts(self):
+        with patch(
+            "yolo.launcher._detect_worktree",
+            return_value=Path("/repo"),
+        ):
+            result = _worktree_volume("bind")
+            assert result == ["-v", "/repo:/repo:z"]
+
+    def test_skip_mode(self):
+        with patch(
+            "yolo.launcher._detect_worktree",
+            return_value=Path("/repo"),
+        ):
+            assert _worktree_volume("skip") == []
+
+    def test_error_mode(self):
+        with patch(
+            "yolo.launcher._detect_worktree",
+            return_value=Path("/repo"),
+        ):
+            with pytest.raises(SystemExit):
+                _worktree_volume("error")

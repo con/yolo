@@ -27,12 +27,19 @@ def build(image):
 )
 @click.option("--entrypoint", default=None, help="Override container entrypoint")
 @click.option("--image", default=None, help="Run a specific named image")
+@click.option(
+    "--worktree",
+    type=click.Choice(["ask", "bind", "skip", "error"]),
+    default=None,
+    help="Git worktree handling mode",
+)
 @click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
-def run(volume, entrypoint, image, claude_args):
+def run(volume, entrypoint, image, worktree, claude_args):
     """Launch Claude Code in a container."""
     launcher_run(
         list(claude_args),
         extra_volumes=list(volume),
         entrypoint=entrypoint,
         image_name=image,
+        worktree=worktree,
     )
