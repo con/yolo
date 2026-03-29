@@ -10,11 +10,33 @@ from yolo.builder import image_tag
 from yolo.config import load_config
 
 
+def _expand_volume(vol: str) -> str:
+    """Expand volume shorthand to full podman -v syntax.
+
+    ~/projects         → $HOME/projects:$HOME/projects:z
+    ~/data::ro         → $HOME/data:$HOME/data:ro
+    /host:/container   → /host:/container:z
+    /host:/cont:opts   → /host:/cont:opts  (unchanged)
+    """
+    home = str(Path.home())
+    if "::" in vol:
+        path, _, opts = vol.partition("::")
+        path = path.replace("~", home, 1)
+        return f"{path}:{path}:{opts}"
+    elif vol.count(":") >= 2:
+        return vol
+    elif ":" in vol:
+        return f"{vol}:z"
+    else:
+        path = vol.replace("~", home, 1)
+        return f"{path}:{path}:z"
+
+
 def _build_volume_args(volumes: list[str]) -> list[str]:
     """Turn a list of volume specs into podman -v args."""
     args = []
     for vol in volumes:
-        args.extend(["-v", vol])
+        args.extend(["-v", _expand_volume(vol)])
     return args
 
 

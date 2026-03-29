@@ -5,13 +5,40 @@ from unittest.mock import patch
 
 import pytest
 
-from yolo.launcher import _build_volume_args, _detect_worktree, _worktree_volume, run
+from yolo.launcher import (
+    _build_volume_args,
+    _detect_worktree,
+    _expand_volume,
+    _worktree_volume,
+    run,
+)
 
 
 @pytest.fixture(autouse=True)
 def _mock_image_tag():
     with patch("yolo.launcher.image_tag", return_value="yolo-test-default"):
         yield
+
+
+class TestExpandVolume:
+    def test_shorthand(self):
+        result = _expand_volume("~/projects")
+        home = str(Path.home())
+        assert result == f"{home}/projects:{home}/projects:z"
+
+    def test_shorthand_with_options(self):
+        result = _expand_volume("~/data::ro")
+        home = str(Path.home())
+        assert result == f"{home}/data:{home}/data:ro"
+
+    def test_partial(self):
+        assert _expand_volume("/host:/container") == "/host:/container:z"
+
+    def test_full_passthrough(self):
+        assert _expand_volume("/host:/container:ro,z") == "/host:/container:ro,z"
+
+    def test_absolute_shorthand(self):
+        assert _expand_volume("/data") == "/data:/data:z"
 
 
 class TestBuildVolumeArgs:
