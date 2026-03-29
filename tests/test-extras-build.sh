@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test that container-extras build correctly and are idempotent
+# Test that image-extras build correctly and are idempotent
 export PS4='> '
 set -x
 set -eu
@@ -10,8 +10,8 @@ trap 'rm -rf $BUILD_CONTEXT' EXIT
 
 # Assemble build context
 mkdir -p "$BUILD_CONTEXT/build/scripts"
-cp "$REPO_ROOT/container-extras/apt.sh" "$BUILD_CONTEXT/build/scripts/"
-cp "$REPO_ROOT/container-extras/python.sh" "$BUILD_CONTEXT/build/scripts/"
+cp "$REPO_ROOT/image-extras/apt.sh" "$BUILD_CONTEXT/build/scripts/"
+cp "$REPO_ROOT/image-extras/python.sh" "$BUILD_CONTEXT/build/scripts/"
 cat > "$BUILD_CONTEXT/build/run.sh" << 'EOF'
 #!/bin/bash
 set -eu

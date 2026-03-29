@@ -47,7 +47,7 @@ Every entry uses the `name:` form. All params become env vars
 prefixed with `YOLO_{NAME}_{KEY}` uppercased:
 
 ```yaml
-container-extras:
+image-extras:
   - name: apt
     packages: [zsh, fzf]
   - name: python

@@ -29,9 +29,9 @@ Run manually against all files:
 pre-commit run --all-files
 ```
 
-## Writing container-extras scripts
+## Writing image-extras scripts
 
-Scripts live in `container-extras/`. Each script is a self-contained
+Scripts live in `image-extras/`. Each script is a self-contained
 bash installer. Parameters are passed as env vars prefixed with
 `YOLO_{SCRIPTNAME}_{KEY}`:
 
@@ -46,7 +46,7 @@ sudo apt-get install -y $YOLO_APT_PACKAGES
 Config references scripts by name:
 
 ```yaml
-container-extras:
+image-extras:
   - name: apt
     packages: [zsh, fzf]
 ```

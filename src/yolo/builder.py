@@ -1,4 +1,4 @@
-"""Build container images with container-extras."""
+"""Build container images with image-extras."""
 
 import os
 import shutil
@@ -8,7 +8,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CONTAINERFILE_EXTRAS = REPO_ROOT / "images" / "Containerfile.extras"
-BUILTIN_EXTRAS = REPO_ROOT / "container-extras"
+BUILTIN_EXTRAS = REPO_ROOT / "image-extras"
 
 BASE_IMAGE = "yolo-base"
 
@@ -35,22 +35,22 @@ def image_tag(image_name: str) -> str:
 
 
 def _extras_search_path() -> list[Path]:
-    """Return container-extras directories in precedence order (lowest first)."""
+    """Return image-extras directories in precedence order (lowest first)."""
     paths = [BUILTIN_EXTRAS]
 
     xdg = os.environ.get("XDG_CONFIG_HOME", "")
     if xdg:
-        paths.append(Path(xdg) / "yolo" / "container-extras")
+        paths.append(Path(xdg) / "yolo" / "image-extras")
     else:
-        paths.append(Path.home() / ".config" / "yolo" / "container-extras")
+        paths.append(Path.home() / ".config" / "yolo" / "image-extras")
 
-    paths.append(Path.cwd() / ".yolo" / "container-extras")
+    paths.append(Path.cwd() / ".yolo" / "image-extras")
 
     from yolo.config import _find_git_dir
 
     git_dir = _find_git_dir()
     if git_dir:
-        paths.append(git_dir / "yolo" / "container-extras")
+        paths.append(git_dir / "yolo" / "image-extras")
 
     return paths
 
@@ -66,7 +66,7 @@ def _resolve_script(name: str, search_path: list[Path]) -> Path | None:
 
 
 def _parse_extra(entry) -> tuple[str, dict[str, str]]:
-    """Parse a single container-extras entry into (name, env_vars).
+    """Parse a single image-extras entry into (name, env_vars).
 
     Entry must be a dict with a 'name' key, or a string (name only):
       {"name": "apt", "packages": "zsh fzf"}  -> ("apt", {"YOLO_APT_PACKAGES": "zsh fzf"})

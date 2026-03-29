@@ -53,10 +53,10 @@ env:
 #   Additional keys become YOLO_{NAME}_{KEY} env vars for the script.
 #
 #   Script search path (later wins):
-#     <package>/container-extras/   — builtins shipped with yolo
-#     ~/.config/yolo/container-extras/   — user scripts
-#     .yolo/container-extras/       — project scripts (committed)
-#     .git/yolo/container-extras/   — project scripts (local)
+#     <package>/image-extras/   — builtins shipped with yolo
+#     ~/.config/yolo/image-extras/   — user scripts
+#     .yolo/image-extras/       — project scripts (committed)
+#     .git/yolo/image-extras/   — project scripts (local)
 #
 #   Scripts must be self-contained bash. They validate their own
 #   env vars and fail with a clear message if something is missing.

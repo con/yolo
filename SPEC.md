@@ -17,8 +17,8 @@ permission prompts needed.
 | Builder | `src/yolo/builder.py` | Resolves extras, assembles build context, invokes podman |
 | Launcher | `src/yolo/launcher.py` | Assembles podman run command |
 | Base image | `images/Containerfile.base` | Minimal debian + Claude Code |
-| Extras image | `images/Containerfile.extras` | Layers container-extras on base |
-| Scripts | `container-extras/` | Composable install scripts |
+| Extras image | `images/Containerfile.extras` | Layers image-extras on base |
+| Scripts | `image-extras/` | Composable install scripts |
 | Defaults | `src/yolo/defaults/config.yaml` | Default image config |
 
 ---
@@ -116,10 +116,10 @@ Becomes:
 
 Search path (later wins):
 
-1. `<package>/container-extras/` — builtins
-2. `~/.config/yolo/container-extras/` — user
-3. `.yolo/container-extras/` — project (committed)
-4. `.git/yolo/container-extras/` — project (local)
+1. `<package>/image-extras/` — builtins
+2. `~/.config/yolo/image-extras/` — user
+3. `.yolo/image-extras/` — project (committed)
+4. `.git/yolo/image-extras/` — project (local)
 
 ### Script requirements
 

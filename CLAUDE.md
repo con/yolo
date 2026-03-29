@@ -33,8 +33,8 @@ Entry point is `yo` (temporary, becomes `yolo` at cutover).
 - `src/yolo/builder.py` — resolves extras, assembles build context, invokes podman
 - `src/yolo/cli.py` — click CLI (yo build, yo run)
 - `src/yolo/launcher.py` — assembles podman run command
-- `src/yolo/defaults/config.yaml` — default container-extras shipped with package
+- `src/yolo/defaults/config.yaml` — default image-extras shipped with package
 - `images/Containerfile.base` — minimal debian base image
-- `images/Containerfile.extras` — layers container-extras on top
-- `container-extras/` — composable install scripts (apt.sh, python.sh, etc.)
+- `images/Containerfile.extras` — layers image-extras on top
+- `image-extras/` — composable install scripts (apt.sh, python.sh, etc.)
 - `.local-notes/` — gitignored local working notes (issues, PRs, etc.)
