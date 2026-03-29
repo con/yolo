@@ -19,6 +19,7 @@ def _build_volume_args(volumes: list[str]) -> list[str]:
 def run(
     claude_args: list[str] | None = None,
     extra_volumes: list[str] | None = None,
+    entrypoint: str | None = None,
 ) -> None:
     """Launch Claude Code in a podman container."""
     config = load_config()
@@ -61,9 +62,13 @@ def run(
         "-e",
         "CLAUDE_CODE_OAUTH_TOKEN",
         "yolo-custom",
-        "claude",
-        "--dangerously-skip-permissions",
-        *(claude_args or []),
     ]
+
+    # TODO: make dangerously_skip_permissions a separate config value
+    # so --entrypoint claude doesn't automatically get it
+    if entrypoint:
+        cmd += [entrypoint, *(claude_args or [])]
+    else:
+        cmd += ["claude", "--dangerously-skip-permissions", *(claude_args or [])]
 
     subprocess.run(cmd)

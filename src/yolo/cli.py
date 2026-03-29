@@ -24,7 +24,8 @@ def build():
 @click.option(
     "-v", "--volume", multiple=True, help="Extra bind mount (host:container[:opts])"
 )
+@click.option("--entrypoint", default=None, help="Override container entrypoint")
 @click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
-def run(volume, claude_args):
+def run(volume, entrypoint, claude_args):
     """Launch Claude Code in a container."""
-    launcher_run(list(claude_args), extra_volumes=list(volume))
+    launcher_run(list(claude_args), extra_volumes=list(volume), entrypoint=entrypoint)

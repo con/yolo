@@ -66,3 +66,20 @@ class TestRun:
         cmd = mock_run.call_args[0][0]
         assert "/cfg:/cfg:z" in cmd
         assert "/cli:/cli:z" in cmd
+
+    @patch("yolo.launcher.subprocess.run")
+    @patch("yolo.launcher.load_config", return_value={})
+    def test_custom_entrypoint(self, mock_config, mock_run):
+        run(entrypoint="bash")
+        cmd = mock_run.call_args[0][0]
+        assert "bash" in cmd
+        assert "claude" not in cmd
+        assert "--dangerously-skip-permissions" not in cmd
+
+    @patch("yolo.launcher.subprocess.run")
+    @patch("yolo.launcher.load_config", return_value={})
+    def test_custom_entrypoint_with_args(self, mock_config, mock_run):
+        run(entrypoint="bash", claude_args=["-c", "echo hi"])
+        cmd = mock_run.call_args[0][0]
+        idx = cmd.index("bash")
+        assert cmd[idx + 1 : idx + 3] == ["-c", "echo hi"]
