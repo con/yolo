@@ -1,13 +1,30 @@
 ---
-# Default yolo configuration
-# Override any of these in your user or project config
+# yolo configuration
+# Docs: SPEC.md | Locations: /etc/yolo, ~/.config/yolo, .yolo/, .git/yolo/
+# Later files override earlier. Lists append. Use !replace to override a list.
 
+# Env vars passed into the container
+# Bare name = passthrough from host. KEY=VALUE = set explicitly.
 env:
   - CLAUDE_CODE_OAUTH_TOKEN
   - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
+# Extra bind mounts (shorthand: ~/path, ~/path::ro, or full podman syntax)
+# volumes:
+#   - ~/data
+#   - ~/projects::ro
+
+# Git worktree handling: ask, bind, skip, error
+# worktree: ask
+
+# NVIDIA GPU passthrough via CDI
+# nvidia: false
+
+# Container images to build
 images:
   - name: default
+    # from: yolo-base
+    # or any image: ghcr.io/org/image:tag, docker.io/lib/python:3.12
     extras:
       - name: apt
         packages:

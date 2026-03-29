@@ -1,9 +1,12 @@
 """CLI entry point for yolo."""
 
+import shutil
+from pathlib import Path
+
 import click
 
 from yolo.builder import build as builder_build
-from yolo.config import load_config
+from yolo.config import DEFAULTS_CONFIG, load_config
 from yolo.launcher import run as launcher_run
 
 
@@ -26,6 +29,46 @@ def build(ctx, image):
     config = load_config(no_config=ctx.obj["no_config"])
     images = config.get("images", [])
     builder_build(images, only=image)
+
+
+@main.command()
+@click.option("--local", "target", flag_value="local", help="Write to .git/yolo/")
+@click.option("--user", "target", flag_value="user", help="Write to ~/.config/yolo/")
+@click.option("--path", "custom_path", default=None, help="Write to custom location")
+@click.option(
+    "--project",
+    "target",
+    flag_value="project",
+    default=True,
+    help="Write to .yolo/ (default)",
+)
+def init(target, custom_path):
+    """Create a config file from the default template."""
+    if custom_path:
+        dest = Path(custom_path) / "config.yaml"
+    elif target == "local":
+        from yolo.config import _find_git_dir
+
+        git_dir = _find_git_dir()
+        if not git_dir:
+            raise click.ClickException("Not in a git repository")
+        dest = git_dir / "yolo" / "config.yaml"
+    elif target == "user":
+        import os
+
+        xdg = os.environ.get("XDG_CONFIG_HOME", "")
+        base = Path(xdg) if xdg else Path.home() / ".config"
+        dest = base / "yolo" / "config.yaml"
+    else:
+        dest = Path.cwd() / ".yolo" / "config.yaml"
+
+    if dest.exists():
+        click.echo(f"Config already exists: {dest}")
+        return
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DEFAULTS_CONFIG, dest)
+    click.echo(f"Created {dest}")
 
 
 @main.command(context_settings={"ignore_unknown_options": True})
