@@ -1,23 +1,41 @@
 """Build container images with container-extras."""
 
+import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CONTAINERFILE_EXTRAS = REPO_ROOT / "images" / "Containerfile.extras"
 BUILTIN_EXTRAS = REPO_ROOT / "container-extras"
 
 BASE_IMAGE = "yolo-base"
-CUSTOM_IMAGE = "yolo-custom"
+
+
+def _project_dirname() -> str:
+    """Get project dirname from git toplevel or cwd."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return Path(result.stdout.strip()).name
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return Path.cwd().name
+
+
+def image_tag(image_name: str) -> str:
+    """Derive podman image tag from image name."""
+    project = _project_dirname()
+    project = "".join(c if c.isalnum() or c in "-_" else "-" for c in project)
+    return f"yolo-{project}-{image_name}"
 
 
 def _extras_search_path() -> list[Path]:
     """Return container-extras directories in precedence order (lowest first)."""
-    import os
-
     paths = [BUILTIN_EXTRAS]
 
     xdg = os.environ.get("XDG_CONFIG_HOME", "")
@@ -51,9 +69,9 @@ def _parse_extra(entry) -> tuple[str, dict[str, str]]:
     """Parse a single container-extras entry into (name, env_vars).
 
     Entry must be a dict with a 'name' key, or a string (name only):
-      {"name": "apt", "packages": "zsh fzf"}  → ("apt", {"YOLO_APT_PACKAGES": "zsh fzf"})
-      {"name": "python", "version": "3.12"}   → ("python", {"YOLO_PYTHON_VERSION": "3.12"})
-      {"name": "datalad"}                      → ("datalad", {})
+      {"name": "apt", "packages": "zsh fzf"}  -> ("apt", {"YOLO_APT_PACKAGES": "zsh fzf"})
+      {"name": "python", "version": "3.12"}   -> ("python", {"YOLO_PYTHON_VERSION": "3.12"})
+      {"name": "datalad"}                      -> ("datalad", {})
     """
     if isinstance(entry, str):
         return (entry, {})
@@ -114,25 +132,48 @@ def assemble_build_context(extras_config: list) -> Path:
     return build_dir
 
 
-def build(extras_config: list) -> None:
-    """Build the custom image with container-extras."""
-    if not extras_config:
-        print("No container-extras configured, nothing to build.")
-        return
+def build_image(image_entry: dict) -> str:
+    """Build a single image from an images list entry. Returns the tag."""
+    name = image_entry.get("name", "default")
+    extras = image_entry.get("extras", [])
+    tag = image_tag(name)
 
-    build_dir = assemble_build_context(extras_config)
+    if not extras:
+        print(f"No extras for image '{name}', skipping.")
+        return tag
+
+    base = image_entry.get("from", BASE_IMAGE)
+
+    build_dir = assemble_build_context(extras)
     try:
         cmd = [
             "podman",
             "build",
+            "--build-arg",
+            f"BASE_IMAGE={base}",
             "-f",
             str(CONTAINERFILE_EXTRAS),
             "-t",
-            CUSTOM_IMAGE,
+            tag,
             str(build_dir),
         ]
-        print(f"Building {CUSTOM_IMAGE}...")
+        print(f"Building {tag}...")
         subprocess.run(cmd, check=True)
-        print(f"Built {CUSTOM_IMAGE}")
+        print(f"Built {tag}")
     finally:
         shutil.rmtree(build_dir)
+
+    return tag
+
+
+def build(images_config: list, only: str | None = None) -> None:
+    """Build images from config. Optionally filter by name."""
+    if not images_config:
+        print("No images configured, nothing to build.")
+        return
+
+    for entry in images_config:
+        name = entry.get("name", "default")
+        if only and name != only:
+            continue
+        build_image(entry)

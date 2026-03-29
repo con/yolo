@@ -1,6 +1,7 @@
 # Layer container-extras on top of yolo-base
 # yolo assembles a build context with scripts and a run.sh manifest
-FROM yolo-base
+ARG BASE_IMAGE=yolo-base
+FROM ${BASE_IMAGE}
 
 USER root
 RUN apt-get update

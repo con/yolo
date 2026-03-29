@@ -2,8 +2,8 @@
 
 import click
 
-from yolo.config import load_config
 from yolo.builder import build as builder_build
+from yolo.config import load_config
 from yolo.launcher import run as launcher_run
 
 
@@ -13,11 +13,12 @@ def main():
 
 
 @main.command()
-def build():
+@click.option("--image", default=None, help="Build only this named image")
+def build(image):
     """Build the container image with configured extras."""
     config = load_config()
-    extras = config.get("container-extras", [])
-    builder_build(extras)
+    images = config.get("images", [])
+    builder_build(images, only=image)
 
 
 @main.command(context_settings={"ignore_unknown_options": True})
@@ -25,7 +26,13 @@ def build():
     "-v", "--volume", multiple=True, help="Extra bind mount (host:container[:opts])"
 )
 @click.option("--entrypoint", default=None, help="Override container entrypoint")
+@click.option("--image", default=None, help="Run a specific named image")
 @click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
-def run(volume, entrypoint, claude_args):
+def run(volume, entrypoint, image, claude_args):
     """Launch Claude Code in a container."""
-    launcher_run(list(claude_args), extra_volumes=list(volume), entrypoint=entrypoint)
+    launcher_run(
+        list(claude_args),
+        extra_volumes=list(volume),
+        entrypoint=entrypoint,
+        image_name=image,
+    )

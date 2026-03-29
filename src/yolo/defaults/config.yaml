@@ -2,16 +2,18 @@
 # Default yolo configuration
 # Override any of these in your user or project config
 
-container-extras:
-  - name: apt
-    packages:
-      - fzf
-      - gh
-      - less
-      - man-db
-      - shellcheck
-      - zsh
-  - name: git-delta
-    version: "0.18.2"
-  - name: python
-    version: "3.12"
+images:
+  - name: default
+    extras:
+      - name: apt
+        packages:
+          - fzf
+          - gh
+          - less
+          - man-db
+          - shellcheck
+          - zsh
+      - name: git-delta
+        version: "0.18.2"
+      - name: python
+        version: "3.12"

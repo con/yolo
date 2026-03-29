@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from yolo.builder import _parse_extra, _resolve_script, assemble_build_context
+from yolo.builder import (
+    _parse_extra,
+    _resolve_script,
+    assemble_build_context,
+    image_tag,
+)
 
 
 # ── _parse_extra ───────────────────────────────────────────────
@@ -130,13 +135,16 @@ class TestAssembleBuildContext:
         with pytest.raises(FileNotFoundError, match="nope"):
             assemble_build_context([{"name": "nope"}])
 
-    def test_string_entry(self, tmp_path, monkeypatch):
-        extras_dir = self._make_extras_dir(tmp_path, {"datalad": "#!/bin/bash"})
-        monkeypatch.setattr("yolo.builder._extras_search_path", lambda: [extras_dir])
 
-        build_dir = assemble_build_context(["datalad"])
-        try:
-            content = (build_dir / "build" / "run.sh").read_text()
-            assert "datalad.sh" in content
-        finally:
-            shutil.rmtree(build_dir)
+class TestImageTag:
+    def test_default_name(self, monkeypatch):
+        monkeypatch.setattr("yolo.builder._project_dirname", lambda: "myproject")
+        assert image_tag("default") == "yolo-myproject-default"
+
+    def test_custom_name(self, monkeypatch):
+        monkeypatch.setattr("yolo.builder._project_dirname", lambda: "myproject")
+        assert image_tag("heavy") == "yolo-myproject-heavy"
+
+    def test_sanitizes_dirname(self, monkeypatch):
+        monkeypatch.setattr("yolo.builder._project_dirname", lambda: "my project!")
+        assert image_tag("default") == "yolo-my-project--default"

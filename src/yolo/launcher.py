@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from yolo.builder import image_tag
 from yolo.config import load_config
 
 
@@ -20,6 +21,7 @@ def run(
     claude_args: list[str] | None = None,
     extra_volumes: list[str] | None = None,
     entrypoint: str | None = None,
+    image_name: str | None = None,
 ) -> None:
     """Launch Claude Code in a podman container."""
     config = load_config()
@@ -61,7 +63,7 @@ def run(
         "GIT_CONFIG_GLOBAL=/tmp/.gitconfig",
         "-e",
         "CLAUDE_CODE_OAUTH_TOKEN",
-        "yolo-custom",
+        image_tag(image_name or "default"),
     ]
 
     # TODO: make dangerously_skip_permissions a separate config value

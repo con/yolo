@@ -2,7 +2,15 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from yolo.launcher import _build_volume_args, run
+
+
+@pytest.fixture(autouse=True)
+def _mock_image_tag():
+    with patch("yolo.launcher.image_tag", return_value="yolo-test-default"):
+        yield
 
 
 class TestBuildVolumeArgs:
@@ -28,6 +36,7 @@ class TestRun:
         assert "--userns=keep-id" in cmd
         assert "claude" in cmd
         assert "--dangerously-skip-permissions" in cmd
+        assert "yolo-test-default" in cmd
 
     @patch("yolo.launcher.subprocess.run")
     @patch("yolo.launcher.load_config", return_value={})
@@ -83,3 +92,13 @@ class TestRun:
         cmd = mock_run.call_args[0][0]
         idx = cmd.index("bash")
         assert cmd[idx + 1 : idx + 3] == ["-c", "echo hi"]
+
+    @patch("yolo.launcher.image_tag")
+    @patch("yolo.launcher.subprocess.run")
+    @patch("yolo.launcher.load_config", return_value={})
+    def test_image_name_passed(self, mock_config, mock_run, mock_tag):
+        mock_tag.return_value = "yolo-myproject-heavy"
+        run(image_name="heavy")
+        mock_tag.assert_called_with("heavy")
+        cmd = mock_run.call_args[0][0]
+        assert "yolo-myproject-heavy" in cmd
