@@ -20,7 +20,8 @@ def build():
     builder_build(extras)
 
 
-@main.command()
-def run():
+@main.command(context_settings={"ignore_unknown_options": True})
+@click.argument("claude_args", nargs=-1, type=click.UNPROCESSED)
+def run(claude_args):
     """Launch Claude Code in a container."""
-    launcher_run()
+    launcher_run(list(claude_args))

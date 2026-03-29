@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 
-def run() -> None:
+def run(claude_args: list[str] | None = None) -> None:
     """Launch Claude Code in a podman container."""
     home = Path.home()
     cwd = Path.cwd()
@@ -43,6 +43,7 @@ def run() -> None:
         "yolo-custom",
         "claude",
         "--dangerously-skip-permissions",
+        *(claude_args or []),
     ]
 
     subprocess.run(cmd)
