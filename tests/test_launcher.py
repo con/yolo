@@ -153,6 +153,36 @@ class TestRun:
         run()
         mock_build.assert_not_called()
 
+    @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch(
+        "yolo.launcher.load_config",
+        return_value={"context": ["You are in a container."]},
+    )
+    def test_context_injection(self, mock_config, mock_run):
+        run()
+        cmd = mock_run.call_args[0][0]
+        assert "--append-system-prompt" in cmd
+        idx = cmd.index("--append-system-prompt")
+        assert cmd[idx + 1] == "You are in a container."
+
+    @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch(
+        "yolo.launcher.load_config",
+        return_value={"context": ["Line one.", "Line two."]},
+    )
+    def test_context_multiple_lines(self, mock_config, mock_run):
+        run()
+        cmd = mock_run.call_args[0][0]
+        idx = cmd.index("--append-system-prompt")
+        assert cmd[idx + 1] == "Line one.\nLine two."
+
+    @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch("yolo.launcher.load_config", return_value={})
+    def test_no_context_no_flag(self, mock_config, mock_run):
+        run()
+        cmd = mock_run.call_args[0][0]
+        assert "--append-system-prompt" not in cmd
+
 
 class TestNvidiaArgs:
     def test_disabled(self):

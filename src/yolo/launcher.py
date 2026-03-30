@@ -189,11 +189,21 @@ def run(
         tag,
     ]
 
+    context_lines = config.get("context", [])
+    context_args = []
+    if context_lines:
+        context_args = ["--append-system-prompt", "\n".join(context_lines)]
+
     # TODO: make dangerously_skip_permissions a separate config value
     # so --entrypoint claude doesn't automatically get it
     if entrypoint:
         cmd += [entrypoint, *(claude_args or [])]
     else:
-        cmd += ["claude", "--dangerously-skip-permissions", *(claude_args or [])]
+        cmd += [
+            "claude",
+            "--dangerously-skip-permissions",
+            *context_args,
+            *(claude_args or []),
+        ]
 
     subprocess.run(cmd)
