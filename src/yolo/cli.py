@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from yolo.builder import build as builder_build
+from yolo.builder import build as builder_build, image_tag
 from yolo.config import load_config
 from yolo.launcher import run as launcher_run
 
@@ -73,6 +73,19 @@ def init(target, custom_path):
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(CONFIG_TEMPLATE, dest)
     click.echo(f"Created {dest}")
+
+
+@main.command()
+@click.pass_context
+def images(ctx):
+    """List configured images and their build status."""
+    config = load_config(no_config=ctx.obj["no_config"])
+    for entry in config.get("images", []):
+        name = entry.get("name", "default")
+        tag = image_tag(name)
+        result = subprocess.run(["podman", "image", "exists", tag], capture_output=True)
+        status = "built" if result.returncode == 0 else "not built"
+        click.echo(f"  {name} ({tag}) — {status}")
 
 
 @main.command()
