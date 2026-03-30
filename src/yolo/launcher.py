@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from yolo.builder import image_tag
+from yolo.builder import build, image_tag
 from yolo.config import load_config
 
 
@@ -151,6 +151,12 @@ def run(
     name = "".join(c if c.isalnum() or c in "._-" else "_" for c in name)
     name = name.lstrip("._")
 
+    tag = image_tag(image_name or "default")
+    result = subprocess.run(["podman", "image", "exists", tag], capture_output=True)
+    if result.returncode != 0:
+        print(f"Image {tag} not found, building...", file=sys.stderr)
+        build(config.get("images", []), only=image_name)
+
     config_volumes = config.get("volumes", [])
 
     cmd = [
@@ -180,7 +186,7 @@ def run(
         "-e",
         "GIT_CONFIG_GLOBAL=/tmp/.gitconfig",
         *_build_env_args(config.get("env", [])),
-        image_tag(image_name or "default"),
+        tag,
     ]
 
     # TODO: make dangerously_skip_permissions a separate config value
