@@ -1,6 +1,7 @@
 """CLI entry point for yolo."""
 
 import shutil
+import subprocess
 from pathlib import Path
 
 import click
@@ -72,6 +73,20 @@ def init(target, custom_path):
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(CONFIG_TEMPLATE, dest)
     click.echo(f"Created {dest}")
+
+
+@main.command()
+@click.pass_context
+def clip(ctx):
+    """Copy container clipboard content to host clipboard."""
+    clip_file = Path.home() / ".local" / "share" / "yolo" / "clip" / "content"
+    if not clip_file.exists():
+        raise click.ClickException("Nothing to clip (no content written yet)")
+    config = load_config(no_config=ctx.obj["no_config"])
+    clipboard_cmd = config.get("host_clipboard_command", "xclip -selection clipboard")
+    content = clip_file.read_text()
+    subprocess.run(clipboard_cmd.split(), input=content, text=True, check=True)
+    click.echo(f"Copied {len(content)} chars to clipboard")
 
 
 @main.command(context_settings={"ignore_unknown_options": True})

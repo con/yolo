@@ -167,10 +167,29 @@ volumes:
 Custom entrypoint skips `--dangerously-skip-permissions`.
 TODO: make skip_permissions a separate config value.
 
+### Clipboard bridge
+
+Host-side clipboard access for container Claude. A shared directory
+(`~/.local/share/yolo/clip/`) is mounted at `/tmp/yolo-clip` in the
+container. Container writes to `/tmp/yolo-clip/content`, host reads
+via `yo clip`.
+
+`host_clipboard_command` config key (default: `xclip -selection clipboard`)
+controls what the host pipes into.
+
+Not multi-instance safe — multiple containers share one clip file.
+Practically fine: user only has one clipboard.
+
 ### Container naming
 
 `<cwd>-<pid>` with `$HOME/` stripped and non-alphanumeric chars
 replaced with `_`.
+
+### Multiple simultaneous containers
+
+Multiple `yo run` instances may run concurrently. Each gets a unique
+container name (`<cwd>-<pid>`). Shared state (clipboard bridge, claude
+config dir) is not isolated between instances.
 
 ---
 

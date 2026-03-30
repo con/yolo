@@ -145,6 +145,8 @@ def run(
     cwd = Path.cwd()
     claude_dir = home / ".claude"
     claude_dir.mkdir(exist_ok=True)
+    clip_dir = home / ".local" / "share" / "yolo" / "clip"
+    clip_dir.mkdir(parents=True, exist_ok=True)
 
     name = f"{cwd}-{os.getpid()}"
     name = name.replace(str(home) + "/", "")
@@ -174,6 +176,8 @@ def run(
         f"{home}/.gitconfig:/tmp/.gitconfig:ro,z",
         "-v",
         f"{cwd}:{cwd}:z",
+        "-v",
+        f"{clip_dir}:/tmp/yolo-clip:z",
         *_build_volume_args(config_volumes),
         *_build_volume_args(extra_volumes or []),
         *_worktree_volume(worktree_mode),

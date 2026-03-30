@@ -183,6 +183,13 @@ class TestRun:
         cmd = mock_run.call_args[0][0]
         assert "--append-system-prompt" not in cmd
 
+    @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch("yolo.launcher.load_config", return_value={})
+    def test_clip_dir_mounted(self, mock_config, mock_run):
+        run()
+        cmd = mock_run.call_args[0][0]
+        assert "/tmp/yolo-clip" in " ".join(cmd)
+
 
 class TestNvidiaArgs:
     def test_disabled(self):
