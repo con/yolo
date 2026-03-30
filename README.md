@@ -39,6 +39,16 @@ Try the interactive demo:
 yo demo
 ```
 
+## Git worktrees
+
+When running in a git worktree, `yo run` detects it and asks whether
+to bind-mount the original repository (needed for git operations like
+commit and fetch). Control with `--worktree=ask|bind|skip|error` or
+set `worktree:` in config.
+
+**Security note**: binding the original repo exposes more files than
+the worktree alone.
+
 ## TODO
 
 - [ ] Configuration reference
