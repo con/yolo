@@ -1,0 +1,36 @@
+# Minimal base image for yolo: Claude Code + essential tools
+# No language runtimes, no opinions — those come from container-extras
+FROM debian:bookworm
+
+ARG TZ
+ENV TZ="$TZ"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  curl \
+  git \
+  jq \
+  sudo \
+  tini \
+  tree \
+  vim \
+  wget \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Non-root user
+RUN useradd -m -s /bin/bash -G sudo yolo && \
+  echo "yolo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/yolo
+
+RUN mkdir -p /workspace && chown yolo:yolo /workspace
+WORKDIR /workspace
+
+USER yolo
+
+# Claude Code
+ARG CLAUDE_CODE_VERSION=stable
+RUN curl -fsSL https://claude.ai/install.sh | bash -s ${CLAUDE_CODE_VERSION}
+ENV DISABLE_AUTOUPDATER=1
+ENV PATH="/home/yolo/.local/bin:$PATH"
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["claude"]

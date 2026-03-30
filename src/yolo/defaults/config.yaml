@@ -1,0 +1,28 @@
+---
+host_clipboard_command: "xclip -selection clipboard"
+
+context:
+  - >-
+    To copy text to the host clipboard, write to
+    /tmp/yolo-clip/content. Tell the user to run
+    'yo clip' on the host to retrieve it.
+
+env:
+  - CLAUDE_CODE_OAUTH_TOKEN
+  - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+
+images:
+  - name: default
+    extras:
+      - name: apt
+        packages:
+          - fzf
+          - gh
+          - less
+          - man-db
+          - shellcheck
+          - zsh
+      - name: git-delta
+        version: "0.18.2"
+      - name: python
+        version: "3.12"

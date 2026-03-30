@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, enhs ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run shellcheck on setup-yolo.sh
+        run: shellcheck setup-yolo.sh
+
+      - name: Run shellcheck on bin/yolo
+        run: shellcheck bin/yolo
+
+  unit-tests:
+    name: Unit Tests (BATS)
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install bats
+        run: |
+          if command -v brew &>/dev/null; then
+            brew install bats-core
+          else
+            sudo apt-get update && sudo apt-get install -y bats
+          fi
+
+      - name: Run tests
+        run: bats tests/
+
+  test-setup:
+    name: Test Setup Script
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Test setup-yolo.sh (build only)
+        run: |
+          # Run setup with no input to skip installation prompt
+          # This will build the image and exit when asking about installation
+          echo "n" | ./setup-yolo.sh || true
+
+          # Verify the image was built
+          podman image exists con-bomination-claude-code
+
+      - name: Verify yolo script syntax
+        run: |
+          bash -n bin/yolo
+          echo "✓ Yolo script has valid syntax"
+
+      - name: Test yolo script help (dry run)
+        run: |
+          # Create a mock podman command that just echoes what would run
+          mkdir -p ~/test-bin
+          cat > ~/test-bin/podman << 'EOF'
+          #!/bin/bash
+          echo "PODMAN COMMAND:"
+          echo "podman $@"
+          exit 0
+          EOF
+          chmod +x ~/test-bin/podman
+
+          # Add to PATH and test
+          export PATH="$HOME/test-bin:$PATH"
+
+          # Verify our mock is used
+          which podman
+
+          # Test various yolo invocations
+          echo "Testing: yolo"
+          ./bin/yolo || true
+
+          echo "Testing: yolo -- \"help with code\""
+          ./bin/yolo -- "help with code" || true
+
+          echo "Testing: yolo -v /data:/data --"
+          ./bin/yolo -v /data:/data -- || true
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [shellcheck, test-setup]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Run full setup (automated)
+        run: |
+          # Answer 'no' to installation prompt
+          echo "n" | ./setup-yolo.sh
+
+      - name: Verify container image
+        run: |
+          podman images
+          podman image exists con-bomination-claude-code
+          echo "✓ Container image successfully built"
+
+      - name: Test container can start
+        run: |
+          # Test that the container starts and can run a basic command
+          # We'll use --help which doesn't require authentication
+          podman run --rm con-bomination-claude-code claude --help
+          echo "✓ Container runs successfully"

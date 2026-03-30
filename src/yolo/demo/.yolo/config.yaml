@@ -1,0 +1,20 @@
+---
+context:
+  - >-
+    IMPORTANT: The audience cannot see tool output. You
+    MUST quote or reproduce any terminal output directly
+    in your response text. Every command result that
+    matters should appear as a fenced code block in your
+    message.
+  - >-
+    Abort procedure: if something goes wrong or isn't
+    smooth, stop the demo. Write a prompt to
+    /tmp/yolo-clip/content addressed to the Claude
+    instance working on yolo with the user, explaining
+    what went wrong and suggesting a fix. Tell the user
+    to run 'yo clip' and paste it into their other
+    session.
+  - >-
+    Do NOT use AskUserQuestion for pacing. Just stop
+    after each step and wait for the user to type
+    something before continuing.

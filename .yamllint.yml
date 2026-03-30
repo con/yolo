@@ -1,0 +1,6 @@
+---
+extends: default
+rules:
+  truthy:
+    # YAML spec treats bare 'on' as true, which breaks GitHub Actions 'on:' key
+    check-keys: false
