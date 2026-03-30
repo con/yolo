@@ -1,17 +1,20 @@
 # Features to test
 
-## container-extras
-- [ ] extras-build to pytest not bash
-- [ ] apt.sh: installs packages, idempotent
-- [ ] python.sh: installs python, creates python/python3 symlinks, idempotent
-- [ ] python.sh: works with version arg and without
-- [ ] python.sh: symlinks point to correct version when specified
+## container-extras (done)
+- [x] apt.sh: installs packages, verify mode
+- [x] python.sh: installs python, creates symlinks, verify mode
+- [x] git-delta.sh: installs delta, verify mode
+- [x] all scripts: idempotent
 
-## Containerfile.base
-- [ ] builds clean from scratch
-- [ ] claude is on PATH and runnable
+## Containerfile.base (done)
+- [x] builds clean from scratch
+- [x] claude is on PATH and runnable
 
-## Containerfile.extras
-- [ ] builds with empty run.sh (vanilla)
-- [ ] builds with apt + python extras
-- [ ] idempotent rebuild produces working image
+## Integration TODO
+- [ ] yo build → yo run --entrypoint bash -c "python --version"
+- [ ] volumes actually mount (write on host, read in container)
+- [ ] env vars arrive inside container
+- [ ] image tagged correctly in podman images
+- [ ] claude --help exits 0 inside image
+- [ ] --no-config changes build behavior
+- [ ] worktree detection in real git worktree
