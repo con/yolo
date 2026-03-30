@@ -104,7 +104,7 @@ def assemble_build_context(extras_config: list) -> Path:
     scripts_dir = build_dir / "build" / "scripts"
     scripts_dir.mkdir(parents=True)
 
-    run_lines = ["#!/bin/bash", "set -eu"]
+    run_lines = ["#!/bin/bash", "export PS4='+ [yolo] '", "set -eux"]
 
     for entry in extras_config:
         name, env_vars = _parse_extra(entry)
@@ -120,6 +120,7 @@ def assemble_build_context(extras_config: list) -> Path:
         if not dest.exists():
             shutil.copy2(script, dest)
 
+        run_lines.append(f"echo '==> {name}'")
         env_prefix = " ".join(f'{k}="{v}"' for k, v in env_vars.items())
         if env_prefix:
             run_lines.append(f"{env_prefix} bash /tmp/yolo-build/scripts/{name}.sh")
@@ -190,6 +191,17 @@ def build_image(image_entry: dict, images_config: list | None = None) -> str:
         return tag
 
     base = image_entry.get("from", BASE_IMAGE)
+
+    print(f"\n  Image: {tag}", flush=True)
+    print(f"  Base:  {base}", flush=True)
+    print("  Extras:", flush=True)
+    for extra in extras:
+        extra_name = extra["name"] if isinstance(extra, dict) else extra
+        script = _resolve_script(extra_name, _extras_search_path())
+        source = str(script.parent) if script else "not found"
+        print(f"    - {extra_name} ({source})", flush=True)
+    print(flush=True)
+
     _ensure_base(base, images_config or [])
 
     build_dir = assemble_build_context(extras)
@@ -205,9 +217,8 @@ def build_image(image_entry: dict, images_config: list | None = None) -> str:
             tag,
             str(build_dir),
         ]
-        print(f"Building {tag}...")
         subprocess.run(cmd, check=True)
-        print(f"Built {tag}")
+        print(f"\n  Built {tag}\n")
     finally:
         shutil.rmtree(build_dir)
 
