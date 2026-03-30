@@ -223,6 +223,7 @@ vector. Mitigations under consideration (none implemented):
 - Registry story (GHCR for base image)
 - `!replace` YAML tag for per-key merge override
 - Hooks / extensible launch behavior
-- Context injection (tell Claude about its environment)
+- Context injection (tell Claude about its environment) — DONE
+- Claude-to-Claude messaging via clip bridge (needs per-instance UUID or named channels)
 - Installer redesign (setup-yolo.sh successor)
 - `dangerously_skip_permissions` as separate config value

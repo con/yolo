@@ -117,7 +117,17 @@ def demo():
         tmp_path = Path(tmp) / "demo"
         shutil.copytree(str(demo_src), str(tmp_path))
         os.chdir(tmp_path)
-        launcher_run(["Read demo.md and follow it."])
+        # Mount yolo source tree so demo can show real code/config
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        extra_volumes = []
+        if (
+            repo_root / "image-extras"
+        ).is_dir():  # sanity check: are we in a source tree?
+            extra_volumes.append(f"{repo_root}:/opt/yolo:ro")
+        launcher_run(
+            ["Read demo.md and follow it."],
+            extra_volumes=extra_volumes,
+        )
 
 
 @main.command(context_settings={"ignore_unknown_options": True})
