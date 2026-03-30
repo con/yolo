@@ -55,14 +55,8 @@ def ensure_base_image():
 
 def _build_verify_image(script, tag):
     """Build an image with a single script via Containerfile.extras."""
-    build_dir = assemble_build_context(_verify_config(script))
+    build_dir = assemble_build_context(_verify_config(script), verify=True)
     try:
-        # Inject YOLO_VERIFY into run.sh
-        run_sh = build_dir / "build" / "run.sh"
-        content = run_sh.read_text()
-        content = content.replace("set -eu", "set -eu\nexport YOLO_VERIFY=1")
-        run_sh.write_text(content)
-
         subprocess.run(
             [
                 "podman",
@@ -104,13 +98,8 @@ def test_idempotent(script):
         _build_verify_image(script, tag1)
 
         # Build again on top of the first image
-        build_dir = assemble_build_context(_verify_config(script))
+        build_dir = assemble_build_context(_verify_config(script), verify=True)
         try:
-            run_sh = build_dir / "build" / "run.sh"
-            content = run_sh.read_text()
-            content = content.replace("set -eu", "set -eu\nexport YOLO_VERIFY=1")
-            run_sh.write_text(content)
-
             result = subprocess.run(
                 [
                     "podman",

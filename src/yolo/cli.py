@@ -93,12 +93,18 @@ def clip(ctx):
 def demo():
     """Run the interactive yolo demo."""
     import os
+    import tempfile
+    from importlib.resources import files
 
-    demo_dir = Path(__file__).resolve().parent.parent.parent / "demo"
-    if not (demo_dir / "demo.md").exists():
-        raise click.ClickException(f"Demo not found at {demo_dir}")
-    os.chdir(demo_dir)
-    launcher_run(["Read demo.md and follow it."])
+    demo_src = files("yolo") / "demo"
+    if not (demo_src / "demo.md").is_file():
+        raise click.ClickException("Demo files not found in package")
+
+    with tempfile.TemporaryDirectory(prefix="yolo-demo-") as tmp:
+        tmp_path = Path(tmp) / "demo"
+        shutil.copytree(str(demo_src), str(tmp_path))
+        os.chdir(tmp_path)
+        launcher_run(["Read demo.md and follow it."])
 
 
 @main.command(context_settings={"ignore_unknown_options": True})

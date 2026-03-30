@@ -24,6 +24,7 @@ yo = "yolo.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/yolo"]
 
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

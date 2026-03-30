@@ -1,0 +1,8 @@
+---
+context:
+  - >-
+    IMPORTANT: The audience cannot see tool output. You
+    MUST quote or reproduce any terminal output directly
+    in your response text. Every command result that
+    matters should appear as a fenced code block in your
+    message.

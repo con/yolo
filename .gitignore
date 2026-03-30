@@ -3,3 +3,4 @@ __pycache__/
 *.egg-info/
 .local-notes/
 .yolo/
+!src/yolo/demo/.yolo/
