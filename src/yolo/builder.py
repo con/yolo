@@ -93,7 +93,7 @@ def _parse_extra(entry) -> tuple[str, dict[str, str]]:
     return (name, env_vars)
 
 
-def assemble_build_context(extras_config: list) -> Path:
+def assemble_build_context(extras_config: list, verify: bool = False) -> Path:
     """Create a temp directory with scripts and run.sh for podman build.
 
     Returns the path to the temp directory. Caller must clean up.
@@ -105,6 +105,8 @@ def assemble_build_context(extras_config: list) -> Path:
     scripts_dir.mkdir(parents=True)
 
     run_lines = ["#!/bin/bash", "export PS4='+ [yolo] '", "set -eux"]
+    if verify:
+        run_lines.append("export YOLO_VERIFY=1")
 
     for entry in extras_config:
         name, env_vars = _parse_extra(entry)
@@ -180,7 +182,9 @@ def _ensure_base(base: str, images_config: list) -> None:
     raise RuntimeError(f"Base image '{base}' not found and not defined in config")
 
 
-def build_image(image_entry: dict, images_config: list | None = None) -> str:
+def build_image(
+    image_entry: dict, images_config: list | None = None, verify: bool = False
+) -> str:
     """Build a single image from an images list entry. Returns the tag."""
     name = image_entry.get("name", "default")
     extras = image_entry.get("extras", [])
@@ -204,7 +208,7 @@ def build_image(image_entry: dict, images_config: list | None = None) -> str:
 
     _ensure_base(base, images_config or [])
 
-    build_dir = assemble_build_context(extras)
+    build_dir = assemble_build_context(extras, verify=verify)
     try:
         cmd = [
             "podman",
@@ -225,7 +229,7 @@ def build_image(image_entry: dict, images_config: list | None = None) -> str:
     return tag
 
 
-def build(images_config: list, only: str | None = None) -> None:
+def build(images_config: list, only: str | None = None, verify: bool = False) -> None:
     """Build images from config. Optionally filter by name."""
     if not images_config:
         print("No images configured, nothing to build.")
@@ -235,4 +239,4 @@ def build(images_config: list, only: str | None = None) -> None:
         name = entry.get("name", "default")
         if only and name != only:
             continue
-        build_image(entry, images_config)
+        build_image(entry, images_config, verify=verify)

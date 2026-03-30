@@ -25,12 +25,13 @@ def main(ctx, no_config):
 
 @main.command()
 @click.option("--image", default=None, help="Build only this named image")
+@click.option("--verify", is_flag=True, default=False, help="Run extras in verify mode")
 @click.pass_context
-def build(ctx, image):
+def build(ctx, image, verify):
     """Build the container image with configured extras."""
     config = load_config(no_config=ctx.obj["no_config"])
     images = config.get("images", [])
-    builder_build(images, only=image)
+    builder_build(images, only=image, verify=verify)
 
 
 @main.command()
