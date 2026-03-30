@@ -89,6 +89,18 @@ def clip(ctx):
     click.echo(f"Copied {len(content)} chars to clipboard")
 
 
+@main.command()
+def demo():
+    """Run the interactive yolo demo."""
+    import os
+
+    demo_dir = Path(__file__).resolve().parent.parent.parent / "demo"
+    if not (demo_dir / "demo.md").exists():
+        raise click.ClickException(f"Demo not found at {demo_dir}")
+    os.chdir(demo_dir)
+    launcher_run(["Read demo.md and follow it."])
+
+
 @main.command(context_settings={"ignore_unknown_options": True})
 @click.option(
     "-v", "--volume", multiple=True, help="Extra bind mount (host:container[:opts])"
