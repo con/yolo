@@ -1,5 +1,10 @@
 **Before writing files, check if CLAUDE.md, design docs, or tests need updating to reflect your changes.**
 
+## Git workflow
+
+- Make clean, atomic commits — one feature or fix per commit.
+- Run `pre-commit run --files <staged files>` before attempting `git commit` to catch formatting issues early.
+
 ## Python
 
 - Always import at the top of the file unless there's a good reason not to.
