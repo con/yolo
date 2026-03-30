@@ -6,8 +6,10 @@ from pathlib import Path
 import click
 
 from yolo.builder import build as builder_build
-from yolo.config import DEFAULTS_CONFIG, load_config
+from yolo.config import load_config
 from yolo.launcher import run as launcher_run
+
+CONFIG_TEMPLATE = Path(__file__).parent / "defaults" / "config.template.yaml"
 
 
 @click.group()
@@ -67,7 +69,7 @@ def init(target, custom_path):
         return
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(DEFAULTS_CONFIG, dest)
+    shutil.copy2(CONFIG_TEMPLATE, dest)
     click.echo(f"Created {dest}")
 
 

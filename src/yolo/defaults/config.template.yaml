@@ -1,0 +1,67 @@
+---
+# yolo configuration
+#
+# Config is loaded from these locations (later overrides earlier):
+#   0. Package defaults
+#   1. /etc/yolo/config.yaml        — system/org
+#   2. ~/.config/yolo/config.yaml   — user preferences
+#   3. .yolo/config.yaml            — project (committed to git)
+#   4. .git/yolo/config.yaml        — project (local, untracked)
+#
+# Merge rules:
+#   - Lists: append across layers
+#   - Dicts: recurse and merge
+#   - Scalars: later value wins
+#   - Use !replace to override a list instead of appending:
+#       volumes: !replace
+#         - ~/only-this
+
+# ── Env vars ────────────────────────────────────────────────
+# Passed into the container.
+# Bare name = passthrough from host. KEY=VALUE = set explicitly.
+# env:
+#   - MY_CUSTOM_VAR
+#   - MY_SECRET=hunter2
+
+# ── Volumes ─────────────────────────────────────────────────
+# Extra bind mounts. Shorthand:
+#   ~/data           → ~/data:~/data:z         (1-to-1)
+#   ~/data::ro       → ~/data:~/data:ro        (1-to-1, read-only)
+#   /host:/container → /host:/container:z      (partial, :z added)
+#   /h:/c:opts       → /h:/c:opts              (full, unchanged)
+# volumes:
+#   - ~/data
+#   - ~/projects::ro
+
+# ── Launcher ────────────────────────────────────────────────
+# Git worktree handling: ask (default), bind, skip, error
+# worktree: ask
+
+# NVIDIA GPU passthrough via CDI
+# nvidia: false
+
+# ── Images ──────────────────────────────────────────────────
+# Container images to build. Each has a name and a list of extras.
+#
+# from: override the base image (default: yolo-base).
+#   Any image reference works: yolo-base, ghcr.io/org/img:tag, etc.
+#
+# extras: scripts that run at build time to install tools.
+#   Each entry needs a 'name' that maps to a .sh script.
+#   Additional keys become YOLO_{NAME}_{KEY} env vars.
+#
+#   Script search path (later wins):
+#     <package>/image-extras/        — builtins
+#     ~/.config/yolo/image-extras/   — user scripts
+#     .yolo/image-extras/            — project (committed)
+#     .git/yolo/image-extras/        — project (local)
+#
+# images:
+#   - name: default
+#     # from: yolo-base
+#     extras:
+#       - name: apt
+#         packages: [zsh, fzf]
+#       - name: python
+#         version: "3.12"
+#       - name: datalad
