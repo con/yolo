@@ -449,8 +449,7 @@ if [ "$USE_NVIDIA" -eq 1 ]; then
 fi
 
 podman run --log-driver=none -it --rm \
-    --user="$(id -u):$(id -g)"\
-    --userns=keep-id \
+    --userns=keep-id:uid=1000,gid=1000 \
     --name="$name" \
     -v "$CLAUDE_MOUNT" \
     -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,z" \
