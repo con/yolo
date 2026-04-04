@@ -36,6 +36,7 @@ OPTIONS:
                             datalad    - DataLad with datalad-container and datalad-next
                             jj         - Jujutsu version control system
                             deno       - Deno JS/TS runtime and formatter
+                            entire     - Entire CLI (entireio/cli)
                             all        - Enable all extras
 
 EXAMPLES:
@@ -102,12 +103,12 @@ while [[ $# -gt 0 ]]; do
             EXTRAS="${1#*=}"
             # Expand "all" to all available extras
             if [[ "$EXTRAS" == "all" ]]; then
-                EXTRAS="cuda,playwright,datalad,jj,deno"
+                EXTRAS="cuda,playwright,datalad,jj,deno,entire"
             fi
             # Validate extras
             for extra in ${EXTRAS//,/ }; do
-                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj|deno)$ ]]; then
-                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, deno, all"
+                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj|deno|entire)$ ]]; then
+                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, deno, entire, all"
                     exit 1
                 fi
             done

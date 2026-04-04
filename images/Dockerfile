@@ -177,6 +177,28 @@ RUN if [ "$EXTRA_DENO" = "1" ]; then \
 
 ENV PATH="/home/node/.deno/bin:$PATH"
 
+# Install Entire CLI via Go
+ARG EXTRA_ENTIRE=""
+
+RUN if [ "$EXTRA_ENTIRE" = "1" ]; then \
+      ARCH=$(uname -m) && \
+      case "$ARCH" in \
+        x86_64) GOARCH=amd64 ;; \
+        aarch64) GOARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+      esac && \
+      GO_VERSION=1.24.2 && \
+      wget -qO /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" && \
+      mkdir -p /tmp/goroot && \
+      tar -xzf /tmp/go.tar.gz -C /tmp/goroot --strip-components=1 && \
+      GOROOT=/tmp/goroot GOPATH=/tmp/gopath PATH="/tmp/goroot/bin:$PATH" \
+        go install github.com/entireio/cli/cmd/entire@latest && \
+      mkdir -p ~/.local/bin && \
+      mv /tmp/gopath/bin/entire ~/.local/bin/entire && \
+      chmod -R u+w /tmp/gopath && \
+      rm -rf /tmp/go.tar.gz /tmp/goroot /tmp/gopath; \
+    fi
+
 # Use tini as init process to properly reap zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["claude"]
