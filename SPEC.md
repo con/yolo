@@ -115,12 +115,15 @@ Tilde (`~`) is expanded to `$HOME` in shorthand and `::` forms.
 
 ### Default Mounts
 
-| Mount         | Host Path            | Container Path               | Options              |
-|---------------|----------------------|------------------------------|----------------------|
-| Claude home   | `~/.claude`          | `~/.claude` or `/claude`     | `:Z` (rw)            |
-| Git config    | `~/.gitconfig`       | `/tmp/.gitconfig`            | `ro,Z`               |
-| Workspace     | `$(pwd)`             | `$(pwd)` or `/workspace`     | `:Z` (rw)            |
-| Worktree repo | `$original_repo_dir` | `$original_repo_dir`         | `:Z` (rw, conditional) |
+| Mount         | Host Path            | Container Path               | Options               |
+|---------------|----------------------|------------------------------|-----------------------|
+| Claude home   | `~/.claude`          | `~/.claude` or `/claude`     | `:z` (rw, shared)     |
+| Git config    | `~/.gitconfig`       | `/tmp/.gitconfig`            | `ro,z` (shared)       |
+| Workspace     | `$(pwd)`             | `$(pwd)` or `/workspace`     | `:z` (rw, shared)     |
+| Worktree repo | `$original_repo_dir` | `$original_repo_dir`         | `:z` (rw, conditional) |
+
+Default mounts use lowercase `:z` (shared SELinux label) to allow multiple
+concurrent yolo containers to access the same paths without EACCES errors.
 
 The `~/.claude` directory is auto-created if missing.
 
@@ -130,23 +133,23 @@ The `~/.claude` directory is auto-created if missing.
 
 ### Preserved Paths (default)
 
-| Variable          | Value                           |
-|-------------------|---------------------------------|
-| `CLAUDE_DIR`      | `$HOME/.claude`                 |
-| `WORKSPACE_DIR`   | `$(pwd)`                        |
-| `CLAUDE_MOUNT`    | `$HOME/.claude:$HOME/.claude:Z` |
-| `WORKSPACE_MOUNT` | `$(pwd):$(pwd):Z`               |
+| Variable          | Value                            |
+|-------------------|----------------------------------|
+| `CLAUDE_DIR`      | `$HOME/.claude`                  |
+| `WORKSPACE_DIR`   | `$(pwd)`                         |
+| `CLAUDE_MOUNT`    | `$HOME/.claude:$HOME/.claude:z`  |
+| `WORKSPACE_MOUNT` | `$(pwd):$(pwd):z`                |
 
 Sessions are compatible between container and native Claude Code.
 
 ### Anonymized Paths (`--anonymized-paths`)
 
-| Variable          | Value                      |
-|-------------------|----------------------------|
-| `CLAUDE_DIR`      | `/claude`                  |
-| `WORKSPACE_DIR`   | `/workspace`               |
-| `CLAUDE_MOUNT`    | `$HOME/.claude:/claude:Z`  |
-| `WORKSPACE_MOUNT` | `$(pwd):/workspace:Z`      |
+| Variable          | Value                       |
+|-------------------|-----------------------------|
+| `CLAUDE_DIR`      | `/claude`                   |
+| `WORKSPACE_DIR`   | `/workspace`                |
+| `CLAUDE_MOUNT`    | `$HOME/.claude:/claude:z`   |
+| `WORKSPACE_MOUNT` | `$(pwd):/workspace:z`       |
 
 All projects appear at `/workspace`, enabling cross-project session context.
 
@@ -171,7 +174,7 @@ All projects appear at `/workspace`, enabling cross-project session context.
 | `skip`  | Do not mount original repo; continue normally    |
 | `error` | Exit with error if worktree detected             |
 
-When mounted, the original repo is bind-mounted at its host path with `:Z`.
+When mounted, the original repo is bind-mounted at its host path with `:z`.
 
 ---
 
@@ -185,6 +188,9 @@ name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" -e "s,
 - Replaces non-alphanumeric characters with `_`.
 - Strips leading periods and underscores (not allowed by podman).
 - Appends PID for uniqueness.
+
+The generated name is used both as the podman container name (`--name`)
+and as the claude session name (`claude --name`).
 
 ---
 
@@ -210,15 +216,14 @@ When `USE_NVIDIA=1`:
 
 ### Fixed `podman run` Arguments
 
-| Argument       | Value                | Purpose                            |
-|----------------|----------------------|------------------------------------|
-| `--log-driver` | `none`               | No container logging               |
-| `-it`          | —                    | Interactive + TTY                  |
-| `--rm`         | —                    | Auto-remove on exit                |
-| `--user`       | `$(id -u):$(id -g)`  | Run as host user                   |
-| `--userns`     | `keep-id`            | Map host user ID into container    |
-| `--name`       | generated            | Container name from PWD + PID      |
-| `-w`           | `$WORKSPACE_DIR`     | Working directory                  |
+| Argument       | Value                          | Purpose                            |
+|----------------|--------------------------------|------------------------------------|
+| `--log-driver` | `none`                         | No container logging               |
+| `-it`          | —                              | Interactive + TTY                  |
+| `--rm`         | —                              | Auto-remove on exit                |
+| `--userns`     | `keep-id:uid=1000,gid=1000`    | Map host UID/GID to 1000 (node)   |
+| `--name`       | generated                      | Container name from PWD + PID      |
+| `-w`           | `$WORKSPACE_DIR`               | Working directory                  |
 
 ### Environment Variables
 
@@ -259,7 +264,7 @@ CMD ["claude"]
 
 ### Non-root User
 
-Runs as `node` user (UID typically 1000). Host UID mapped via `--userns=keep-id`.
+Runs as `node` user (UID 1000). Host UID mapped via `--userns=keep-id:uid=1000,gid=1000`.
 
 ### Core Packages
 
@@ -287,7 +292,9 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `EXTRA_PLAYWRIGHT`     | `""`     | Set to `"1"` to enable Playwright + Chromium |
 | `EXTRA_DATALAD`        | `""`     | Set to `"1"` to enable DataLad             |
 | `EXTRA_JJ`             | `""`     | Set to `"1"` to enable Jujutsu             |
+| `EXTRA_DENO`           | `""`     | Set to `"1"` to enable Deno                |
 | `JJ_VERSION`           | `0.38.0` | Jujutsu version                            |
+| `DENO_VERSION`         | `""`     | Deno version (empty = latest)              |
 | `GIT_DELTA_VERSION`    | `0.18.2` | git-delta version                          |
 | `ZSH_IN_DOCKER_VERSION` | `1.2.0`  | zsh-in-docker version                      |
 
@@ -299,6 +306,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `playwright` | System deps + `npm install -g playwright` + Chromium browser            |
 | `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`  |
 | `jj`         | Musl binary from GitHub release + zsh completion                        |
+| `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup             |
 
 ### Container Environment
 
@@ -309,7 +317,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `EDITOR`             | `vim`                          |
 | `VISUAL`             | `vim`                          |
 | `NPM_CONFIG_PREFIX`  | `/usr/local/share/npm-global`  |
-| `PATH`               | Includes npm-global/bin, `~/.local/bin` |
+| `PATH`               | Includes npm-global/bin, `~/.local/bin`, `~/.deno/bin` |
 
 ---
 
@@ -329,7 +337,7 @@ setup-yolo.sh [OPTIONS]
 | `--build=MODE`     | `auto`  | `auto`, `yes`, `no`                          | Image build control    |
 | `--install=MODE`   | `auto`  | `auto`, `yes`, `no`                          | Script install control |
 | `--packages=PKGS`  | `""`    | comma/space-separated                        | Extra apt packages     |
-| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `all` | Predefined extras      |
+| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `all` | Predefined extras      |
 
 ### Build Behavior
 
@@ -378,12 +386,12 @@ After install, checks if `~/.local/bin` is in `$PATH` and warns if not.
 
 ### Isolation Mechanisms
 
-| Mechanism        | Technology         | What It Protects               |
-|------------------|--------------------|--------------------------------|
-| Filesystem       | Podman mount-only  | Only mounted dirs visible      |
-| User namespace   | `--userns=keep-id` | No privilege escalation        |
-| Process          | Rootless podman    | Isolated from host processes   |
-| Network          | **None**           | Unrestricted outbound access   |
+| Mechanism        | Technology                       | What It Protects               |
+|------------------|----------------------------------|--------------------------------|
+| Filesystem       | Podman mount-only                | Only mounted dirs visible      |
+| User namespace   | `--userns=keep-id:uid=1000,gid=1000` | No privilege escalation   |
+| Process          | Rootless podman                  | Isolated from host processes   |
+| Network          | **None**                         | Unrestricted outbound access   |
 
 ### Deliberate Non-restrictions
 
@@ -422,7 +430,7 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 
 ### Triggers
 
-- Push to `main`.
+- Push to `main` or `enhs`.
 - Pull requests targeting `main`.
 
 ### Jobs
