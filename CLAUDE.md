@@ -1,3 +1,12 @@
 # YOLO Development
 
-**IMPORTANT: Always consult `SPEC.md` before making any changes to yolo.** It documents all current features, CLI flags, configuration, container runtime behavior, and security boundaries. Any modifications must stay consistent with the spec, and the spec must be updated to reflect any changes.
+**Always consult `SPEC.md`, `README.md`, and `tests/` before making changes.**
+The spec and tests must be kept in sync with the code.
+
+## Testing
+
+`bats tests/` — requires bats-core and the submodules in `tests/test_helper/`.
+
+## Branching
+
+`main` is the primary branch. `enhs` is used for enhancement batches.
