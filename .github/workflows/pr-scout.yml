@@ -1,0 +1,20 @@
+name: pr-scout
+
+on: pull_request
+permissions:
+  pull-requests: write
+jobs:
+  spec-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: asmacdo/pr-scout@main
+        with:
+          check: spec-audit
+        env:
+          PR_SCOUT_OPENAI_BASE_URL: ${{ secrets.PR_SCOUT_OPENAI_BASE_URL }}
+          PR_SCOUT_OPENAI_API_KEY: ${{ secrets.PR_SCOUT_OPENAI_API_KEY }}
+          PR_SCOUT_MODEL: ${{ secrets.PR_SCOUT_MODEL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
