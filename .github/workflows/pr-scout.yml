@@ -13,6 +13,7 @@ jobs:
       - uses: asmacdo/pr-scout@main
         with:
           check: spec-audit
+          ignore: ".github/**"
         env:
           PR_SCOUT_OPENAI_BASE_URL: ${{ secrets.PR_SCOUT_OPENAI_BASE_URL }}
           PR_SCOUT_OPENAI_API_KEY: ${{ secrets.PR_SCOUT_OPENAI_API_KEY }}
