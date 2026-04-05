@@ -192,7 +192,7 @@ RUN if [ "$EXTRA_ENTIRE" = "1" ]; then \
       mkdir -p /tmp/goroot && \
       tar -xzf /tmp/go.tar.gz -C /tmp/goroot --strip-components=1 && \
       GOROOT=/tmp/goroot GOPATH=/tmp/gopath PATH="/tmp/goroot/bin:$PATH" \
-        go install github.com/entireio/cli/cmd/entire@latest && \
+        go install github.com/entireio/cli/cmd/entire@v0.5.3 && \
       mkdir -p ~/.local/bin && \
       mv /tmp/gopath/bin/entire ~/.local/bin/entire && \
       chmod -R u+w /tmp/gopath && \
