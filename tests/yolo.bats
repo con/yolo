@@ -79,6 +79,18 @@ EOF
     assert_output --partial "Invalid --worktree value"
 }
 
+@test "--worktree=create: bare create exits with error" {
+    run_yolo --worktree=create
+    assert_failure
+    assert_output --partial "requires a branch name"
+}
+
+@test "--worktree=create:branch: passes validation" {
+    run_yolo --worktree=create:test-branch
+    # Will fail at git worktree add (not a real repo), but should NOT fail validation
+    refute_output --partial "Invalid --worktree value"
+}
+
 # ── Separator (--) and argument routing ───────────────────────────
 
 @test "separator: args after -- become claude container args" {
