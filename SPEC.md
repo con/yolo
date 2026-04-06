@@ -293,6 +293,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `EXTRA_DATALAD`        | `""`     | Set to `"1"` to enable DataLad             |
 | `EXTRA_JJ`             | `""`     | Set to `"1"` to enable Jujutsu             |
 | `EXTRA_DENO`           | `""`     | Set to `"1"` to enable Deno                |
+| `EXTRA_ENTIRE`         | `""`     | Set to `"1"` to enable Entire CLI          |
 | `JJ_VERSION`           | `0.38.0` | Jujutsu version                            |
 | `DENO_VERSION`         | `""`     | Deno version (empty = latest)              |
 | `GIT_DELTA_VERSION`    | `0.18.2` | git-delta version                          |
@@ -307,6 +308,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`  |
 | `jj`         | Musl binary from GitHub release + zsh completion                        |
 | `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup             |
+| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.5.3)   |
 
 ### Container Environment
 
@@ -337,7 +339,7 @@ setup-yolo.sh [OPTIONS]
 | `--build=MODE`     | `auto`  | `auto`, `yes`, `no`                          | Image build control    |
 | `--install=MODE`   | `auto`  | `auto`, `yes`, `no`                          | Script install control |
 | `--packages=PKGS`  | `""`    | comma/space-separated                        | Extra apt packages     |
-| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `all` | Predefined extras      |
+| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`, `all` | Predefined extras      |
 
 ### Build Behavior
 
