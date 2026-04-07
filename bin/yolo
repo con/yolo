@@ -18,6 +18,7 @@ OPTIONS:
                          Requires nvidia-container-toolkit on host
     --no-config          Ignore project configuration file
     --install-config     Create/display .git/yolo/config template
+    --oopsie             Print "fail!" and exit
 
     Additional podman options can be passed before --
 
@@ -198,6 +199,10 @@ while [ $# -gt 0 ]; do
             ;;
         --install-config)
             install_config
+            ;;
+        --oopsie)
+            echo "fail!"
+            exit 0
             ;;
         --entrypoint)
             ENTRYPOINT="$2"
