@@ -12,7 +12,8 @@ OPTIONS:
     --anonymized-paths   Use anonymized paths (/claude, /workspace) instead of
                          preserving host paths
     --entrypoint=CMD     Override the container entrypoint (default: claude)
-    --worktree=MODE      Git worktree handling: ask, bind, skip, error
+    --worktree=MODE      Git worktree handling: ask, bind, skip, error,
+                         create:<branch-name>
                          (default: ask)
     --nvidia             Enable NVIDIA GPU passthrough via CDI
                          Requires nvidia-container-toolkit on host
@@ -210,9 +211,9 @@ while [ $# -gt 0 ]; do
         --worktree=*)
             WORKTREE_MODE="${1#--worktree=}"
             # Validate worktree mode
-            if [[ ! "$WORKTREE_MODE" =~ ^(ask|bind|skip|error)$ ]]; then
+            if [[ ! "$WORKTREE_MODE" =~ ^(ask|bind|skip|error|create(:.+)?)$ ]]; then
                 echo "Error: Invalid --worktree value: $WORKTREE_MODE" >&2
-                echo "Valid values are: ask, bind, skip, error" >&2
+                echo "Valid values are: ask, bind, skip, error, create:<branch-name>" >&2
                 exit 1
             fi
             shift
@@ -341,6 +342,24 @@ fi
 CLAUDE_HOME_DIR="$HOME/.claude"
 # must exist but might not if first start on that box
 mkdir -p "$CLAUDE_HOME_DIR"
+
+# Handle --worktree=create:<branch-name>: create a new worktree and cd into it
+if [[ "$WORKTREE_MODE" == "create" ]]; then
+    echo "Error: --worktree=create requires a branch name, e.g. --worktree=create:fix-issue-99" >&2
+    exit 1
+elif [[ "$WORKTREE_MODE" =~ ^create:(.+)$ ]]; then
+    create_branch="${BASH_REMATCH[1]}"
+    worktree_dir="$(dirname "$(pwd)")/$create_branch"
+
+    echo "Creating worktree at $worktree_dir (branch: $create_branch)..." >&2
+    git worktree add "$worktree_dir" -b "$create_branch" || exit 1
+    cd "$worktree_dir" || exit 1
+
+    # Regenerate container name for the new directory
+    name=$( echo "$PWD-$$" | sed -e "s,^$HOME/,,g" -e "s,[^a-zA-Z0-9_.-],_,g" -e "s,^[._]*,," )
+
+    WORKTREE_MODE="bind"
+fi
 
 # Detect if we're in a git worktree and find the original repo
 WORKTREE_MOUNTS=()
