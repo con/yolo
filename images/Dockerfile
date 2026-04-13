@@ -116,9 +116,6 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
   -x
 
-# Install Claude
-RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
-
 # Install Playwright and Chromium browser if enabled
 RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
       npm install -g playwright && \
@@ -198,6 +195,9 @@ RUN if [ "$EXTRA_ENTIRE" = "1" ]; then \
       chmod -R u+w /tmp/gopath && \
       rm -rf /tmp/go.tar.gz /tmp/goroot /tmp/gopath; \
     fi
+
+# Install Claude
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
 # Use tini as init process to properly reap zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
