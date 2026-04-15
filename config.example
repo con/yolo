@@ -67,7 +67,7 @@ YOLO_CLAUDE_ARGS=(
 # Enable NVIDIA GPU passthrough by default (requires nvidia-container-toolkit)
 # USE_NVIDIA=0
 
-# Git worktree handling mode: ask (default), bind, skip, or error
+# Git worktree handling mode: ask (default), bind, skip, error, or create:<branch>
 # WORKTREE_MODE="ask"
 
 # ============================================================================

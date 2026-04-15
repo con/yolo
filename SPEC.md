@@ -30,16 +30,17 @@ claude. If no `--` is present, all positional arguments go to claude.
 
 ### Flags
 
-| Flag                 | Default  | Description                                                  |
-|----------------------|----------|--------------------------------------------------------------|
-| `-h`, `--help`       | —        | Show help and exit                                           |
-| `--anonymized-paths` | off      | Use `/claude` and `/workspace` instead of host paths         |
-| `--entrypoint=CMD`   | `claude` | Override container entrypoint                                |
-| `--entrypoint CMD`   | `claude` | Same, space-separated form                                   |
-| `--worktree=MODE`    | `ask`    | Git worktree handling: `ask`, `bind`, `skip`, `error`        |
-| `--nvidia`           | off      | Enable NVIDIA GPU passthrough via CDI                        |
-| `--no-config`        | off      | Ignore all configuration files                               |
-| `--install-config`   | —        | Create or display `.git/yolo/config` template, then exit     |
+| Flag                         | Default  | Description                                              |
+|------------------------------|----------|----------------------------------------------------------|
+| `-h`, `--help`               | —        | Show help and exit                                       |
+| `--anonymized-paths`         | off      | Use `/claude` and `/workspace` instead of host paths     |
+| `--entrypoint=CMD`           | `claude` | Override container entrypoint                            |
+| `--entrypoint CMD`           | `claude` | Same, space-separated form                               |
+| `--worktree=MODE`            | `ask`    | Git worktree handling: `ask`, `bind`, `skip`, `error`    |
+| `--create-worktree=BRANCH`   | —        | Create or resume a worktree (see §5)                     |
+| `--nvidia`                   | off      | Enable NVIDIA GPU passthrough via CDI                    |
+| `--no-config`                | off      | Ignore all configuration files                           |
+| `--install-config`           | —        | Create or display `.git/yolo/config` template, then exit |
 
 ### Argument Routing
 
@@ -80,11 +81,12 @@ User-wide and project arrays are concatenated (user-wide first).
 
 #### Scalars (project overrides user-wide; CLI overrides both)
 
-| Key                    | Type     | Default | Description                    |
-|------------------------|----------|---------|--------------------------------|
-| `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`     | Use anonymized container paths |
-| `USE_NVIDIA`           | `0\|1`   | `0`     | Enable NVIDIA GPU passthrough  |
-| `WORKTREE_MODE`        | `string` | `ask`   | Git worktree handling mode     |
+| Key                    | Type     | Default             | Description                                |
+|------------------------|----------|---------------------|--------------------------------------------|
+| `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`                 | Use anonymized container paths             |
+| `USE_NVIDIA`           | `0\|1`   | `0`                 | Enable NVIDIA GPU passthrough              |
+| `WORKTREE_MODE`        | `string` | `ask`               | Git worktree handling mode                 |
+| `WORKTREE_DIR`         | `string` | `.git/my-worktrees` | Worktree directory (relative to repo root) |
 
 ### Loading Order
 
@@ -175,6 +177,32 @@ All projects appear at `/workspace`, enabling cross-project session context.
 | `error` | Exit with error if worktree detected             |
 
 When mounted, the original repo is bind-mounted at its host path with `:z`.
+
+### Creation (`--create-worktree`)
+
+Syntax: `--create-worktree=<branch>` or `--create-worktree=<base>:<branch>`.
+
+| Form              | Base ref | New branch   |
+|-------------------|----------|--------------|
+| `feature-x`       | HEAD     | `feature-x`  |
+| `main:feature-x`  | `main`   | `feature-x`  |
+
+Bare `--create-worktree` (no value) is an error.
+
+#### Behavior
+
+1. If `WORKTREE_DIR/<branch>` exists on disk, `cd` into it (resume).
+2. Otherwise, create via `git worktree add WORKTREE_DIR/<branch> -b <branch> [<base>]`.
+3. If `<branch>` exists as a git branch but not as a worktree, exit with error.
+4. After `cd`, normal worktree detection and `--worktree` mode handling applies.
+
+### Worktree Directory
+
+| Key            | Default             | Description                              |
+|----------------|---------------------|------------------------------------------|
+| `WORKTREE_DIR` | `.git/my-worktrees` | Worktree location, relative to repo root |
+
+Only relative paths are supported.
 
 ---
 
