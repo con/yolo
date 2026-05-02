@@ -37,6 +37,7 @@ OPTIONS:
                             jj         - Jujutsu version control system
                             deno       - Deno JS/TS runtime and formatter
                             entire     - Entire CLI (entireio/cli)
+                            apptainer  - Apptainer container runtime (rootless)
                             all        - Enable all extras
 
 EXAMPLES:
@@ -103,12 +104,12 @@ while [[ $# -gt 0 ]]; do
             EXTRAS="${1#*=}"
             # Expand "all" to all available extras
             if [[ "$EXTRAS" == "all" ]]; then
-                EXTRAS="cuda,playwright,datalad,jj,deno,entire"
+                EXTRAS="cuda,playwright,datalad,jj,deno,entire,apptainer"
             fi
             # Validate extras
             for extra in ${EXTRAS//,/ }; do
-                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj|deno|entire)$ ]]; then
-                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, deno, entire, all"
+                if [[ ! "$extra" =~ ^(cuda|playwright|datalad|jj|deno|entire|apptainer)$ ]]; then
+                    echo "Error: Unknown extra '$extra'. Valid extras: cuda, playwright, datalad, jj, deno, entire, apptainer, all"
                     exit 1
                 fi
             done
