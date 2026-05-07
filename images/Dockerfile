@@ -62,6 +62,29 @@ RUN if [ "$EXTRA_CUDA" = "1" ]; then \
       && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# Apptainer (rootless container/SIF runtime) — upstream Debian install instructions:
+# https://apptainer.org/docs/admin/main/installation.html#install-debian-packages
+ARG EXTRA_APPTAINER=""
+ARG APPTAINER_VERSION=1.4.5
+RUN if [ "$EXTRA_APPTAINER" = "1" ]; then \
+      ARCH=$(dpkg --print-architecture) && \
+      if [ "$ARCH" != "amd64" ]; then \
+        echo "EXTRA_APPTAINER only supports amd64 (got $ARCH); upstream publishes amd64 .deb only" && exit 1; \
+      fi && \
+      . /etc/os-release && \
+      if [ "$VERSION_CODENAME" = "trixie" ] || [ "$VERSION_CODENAME" = "forky" ] || [ "$VERSION_CODENAME" = "sid" ]; then \
+        DEB="apptainer_${APPTAINER_VERSION}-trixie+_amd64.deb"; \
+      else \
+        DEB="apptainer_${APPTAINER_VERSION}_amd64.deb"; \
+      fi && \
+      wget -qO "/tmp/${DEB}" \
+        "https://github.com/apptainer/apptainer/releases/download/v${APPTAINER_VERSION}/${DEB}" && \
+      apt-get update && \
+      apt-get install -y --no-install-recommends "/tmp/${DEB}" && \
+      apt-get clean && rm -rf /var/lib/apt/lists/* && \
+      rm "/tmp/${DEB}"; \
+    fi
+
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
   chown -R node:node /usr/local/share

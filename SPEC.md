@@ -294,8 +294,10 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `EXTRA_JJ`             | `""`     | Set to `"1"` to enable Jujutsu             |
 | `EXTRA_DENO`           | `""`     | Set to `"1"` to enable Deno                |
 | `EXTRA_ENTIRE`         | `""`     | Set to `"1"` to enable Entire CLI          |
+| `EXTRA_APPTAINER`      | `""`     | Set to `"1"` to enable Apptainer           |
 | `JJ_VERSION`           | `0.38.0` | Jujutsu version                            |
 | `DENO_VERSION`         | `""`     | Deno version (empty = latest)              |
+| `APPTAINER_VERSION`    | `1.4.5`  | Apptainer version                          |
 | `GIT_DELTA_VERSION`    | `0.18.2` | git-delta version                          |
 | `ZSH_IN_DOCKER_VERSION` | `1.2.0`  | zsh-in-docker version                      |
 
@@ -309,6 +311,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `jj`         | Musl binary from GitHub release + zsh completion                        |
 | `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup             |
 | `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.5.3)   |
+| `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
 
 ### Container Environment
 
@@ -339,7 +342,7 @@ setup-yolo.sh [OPTIONS]
 | `--build=MODE`     | `auto`  | `auto`, `yes`, `no`                          | Image build control    |
 | `--install=MODE`   | `auto`  | `auto`, `yes`, `no`                          | Script install control |
 | `--packages=PKGS`  | `""`    | comma/space-separated                        | Extra apt packages     |
-| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`, `all` | Predefined extras      |
+| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`, `apptainer`, `all` | Predefined extras      |
 
 ### Build Behavior
 
