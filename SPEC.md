@@ -310,7 +310,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`  |
 | `jj`         | Musl binary from GitHub release + zsh completion                        |
 | `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup             |
-| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.5.3)   |
+| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)   |
 | `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
 
 ### Container Environment
