@@ -32,6 +32,30 @@ load 'test_helper/common'
     assert_output "/host:/container:Z"
 }
 
+# ── dedup_mount_specs (function-level) ────────────────────────────
+
+@test "dedup_mount_specs: keeps last occurrence per host path" {
+    load_yolo_functions
+    dedup_mount_specs "/a:/a:Z" "/b:/b:Z" "/a:/a:z"
+    [ "${#DEDUPED_MOUNT_SPECS[@]}" -eq 2 ]
+    [ "${DEDUPED_MOUNT_SPECS[0]}" = "/b:/b:Z" ]
+    [ "${DEDUPED_MOUNT_SPECS[1]}" = "/a:/a:z" ]
+}
+
+@test "dedup_mount_specs: no duplicates preserves order and count" {
+    load_yolo_functions
+    dedup_mount_specs "/a:/a:z" "/b:/b:z" "/c:/c:z"
+    [ "${#DEDUPED_MOUNT_SPECS[@]}" -eq 3 ]
+    [ "${DEDUPED_MOUNT_SPECS[0]}" = "/a:/a:z" ]
+    [ "${DEDUPED_MOUNT_SPECS[2]}" = "/c:/c:z" ]
+}
+
+@test "dedup_mount_specs: empty input gives empty output" {
+    load_yolo_functions
+    dedup_mount_specs
+    [ "${#DEDUPED_MOUNT_SPECS[@]}" -eq 0 ]
+}
+
 # ── CLI flags (end-to-end with mock podman) ───────────────────────
 
 @test "--help: prints usage and exits 0" {
@@ -133,6 +157,103 @@ EOF
     assert_success
     podman_args_contain "$TEST_HOME/skills:$TEST_HOME/skills:Z"
     podman_args_contain "$TEST_HOME/data:$TEST_HOME/data:Z"
+}
+
+@test "config: duplicate volumes across user + project are deduplicated" {
+    write_user_config << 'EOF'
+YOLO_PODMAN_VOLUMES=("~/data")
+EOF
+    write_project_config << 'EOF'
+YOLO_PODMAN_VOLUMES=("~/data")
+EOF
+    run_yolo
+    assert_success
+    local expanded="$TEST_HOME/data:$TEST_HOME/data:Z"
+    local count
+    count=$(get_podman_args | grep -cFx -- "$expanded")
+    [ "$count" -eq 1 ]
+}
+
+@test "config: duplicate volumes within a single config are deduplicated" {
+    write_project_config << 'EOF'
+YOLO_PODMAN_VOLUMES=("~/data" "~/data")
+EOF
+    run_yolo
+    assert_success
+    local expanded="$TEST_HOME/data:$TEST_HOME/data:Z"
+    local count
+    count=$(get_podman_args | grep -cFx -- "$expanded")
+    [ "$count" -eq 1 ]
+}
+
+@test "config: volume matching CWD is dropped (workspace mount wins)" {
+    # Use unquoted heredoc so $TEST_REPO interpolates
+    write_user_config <<EOF
+YOLO_PODMAN_VOLUMES=("$TEST_REPO")
+EOF
+    run_yolo
+    assert_success
+    # Workspace mount (lowercase :z) must still be present
+    podman_args_contain "$TEST_REPO:$TEST_REPO:z"
+    # Config-derived duplicate (uppercase :Z) must NOT be added
+    refute_podman_arg "$TEST_REPO:$TEST_REPO:Z"
+    # Exactly one -v entry for this host path
+    local count
+    count=$(get_podman_args | grep -cE "^${TEST_REPO}:${TEST_REPO}:[zZ]\$")
+    [ "$count" -eq 1 ]
+}
+
+@test "config: volume matching ~/.claude is dropped" {
+    write_user_config << 'EOF'
+YOLO_PODMAN_VOLUMES=("~/.claude")
+EOF
+    run_yolo
+    assert_success
+    # Default claude mount (lowercase :z) is present
+    podman_args_contain "$TEST_HOME/.claude:$TEST_HOME/.claude:z"
+    # Config-derived duplicate (uppercase :Z) is not
+    refute_podman_arg "$TEST_HOME/.claude:$TEST_HOME/.claude:Z"
+}
+
+@test "dedup: CLI -v overrides config for the same host path" {
+    write_user_config << 'EOF'
+YOLO_PODMAN_VOLUMES=("~/data")
+EOF
+    run_yolo -v "$TEST_HOME/data:/elsewhere:ro" --
+    assert_success
+    podman_args_contain "$TEST_HOME/data:/elsewhere:ro"
+    refute_podman_arg "$TEST_HOME/data:$TEST_HOME/data:Z"
+}
+
+@test "dedup: CLI -v on workspace path overrides default workspace mount" {
+    run_yolo -v "$TEST_REPO:/elsewhere:ro" --
+    assert_success
+    podman_args_contain "$TEST_REPO:/elsewhere:ro"
+    refute_podman_arg "$TEST_REPO:$TEST_REPO:z"
+}
+
+@test "dedup: config volume matching worktree original repo is dropped" {
+    # Build a fake git worktree: $TEST_REPO/.git is a file whose gitdir
+    # points to an "original" repo elsewhere under BATS_TEST_TMPDIR.
+    local tmpbase fake_orig
+    tmpbase=$(realpath "$BATS_TEST_TMPDIR")
+    fake_orig="$tmpbase/orig-repo"
+    mkdir -p "$fake_orig/.git/worktrees/test-wt"
+    rm -rf "$TEST_REPO/.git"
+    echo "gitdir: $fake_orig/.git/worktrees/test-wt" > "$TEST_REPO/.git"
+
+    write_user_config <<EOF
+YOLO_PODMAN_VOLUMES=("$fake_orig")
+EOF
+    run_yolo --worktree=bind
+    assert_success
+    # Worktree mount (lowercase :z) is present, config :Z is dropped
+    podman_args_contain "$fake_orig:$fake_orig:z"
+    refute_podman_arg "$fake_orig:$fake_orig:Z"
+    # Exactly one -v entry for this host path
+    local count
+    count=$(get_podman_args | grep -cE "^${fake_orig}:${fake_orig}:[zZ]\$")
+    [ "$count" -eq 1 ]
 }
 
 @test "config: scalar override — project USE_NVIDIA=0 overrides user USE_NVIDIA=1" {
