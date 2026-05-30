@@ -155,7 +155,7 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     echo
 
     TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "UTC")
-    BUILD_ARGS=(--build-arg "TZ=$TZ")
+    BUILD_ARGS=(--build-arg "TZ=$TZ" --build-arg "CLAUDE_CACHEBUST=$(date +%s)")
     if [ -n "$EXTRA_PACKAGES" ]; then
         BUILD_ARGS+=(--build-arg "EXTRA_PACKAGES=$EXTRA_PACKAGES")
     fi
