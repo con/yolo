@@ -220,6 +220,8 @@ RUN if [ "$EXTRA_ENTIRE" = "1" ]; then \
     fi
 
 # Install Claude
+# Cache-bust: pass --build-arg CLAUDE_CACHEBUST=$(date +%s) to force a fresh install
+ARG CLAUDE_CACHEBUST=
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
 # Use tini as init process to properly reap zombie processes
