@@ -77,6 +77,8 @@ auto-created from the built-in template and a message is printed to stderr.
 | `YOLO_CLAUDE_ARGS`     | `string[]` | Arguments passed to claude         |
 
 User-wide and project arrays are concatenated (user-wide first).
+Cross-source deduplication of mounts (config vs default vs CLI) happens
+later, just before `podman run` — see §3 "Volume Mount Handling".
 
 #### Scalars (project overrides user-wide; CLI overrides both)
 
@@ -126,6 +128,37 @@ Default mounts use lowercase `:z` (shared SELinux label) to allow multiple
 concurrent yolo containers to access the same paths without EACCES errors.
 
 The `~/.claude` directory is auto-created if missing.
+
+### Mount Deduplication
+
+Just before invoking `podman run`, yolo collects every `-v` mount it
+would pass — from config (`YOLO_PODMAN_VOLUMES`, after `expand_volume`),
+from default mounts (claude home, gitconfig, workspace, worktree-original
+when applicable), and from CLI `-v` / `--volume` flags — into a single
+ordered list and deduplicates by **host path** (the first colon-delimited
+segment of the spec). When two entries share a host path, the LATER one
+in this list wins (the earlier one is dropped).
+
+Priority order, lowest to highest (last wins):
+
+1. `YOLO_PODMAN_VOLUMES` (config)
+2. Default mounts in this order: claude home, gitconfig, workspace, worktree-original
+3. CLI `-v` / `--volume`
+
+This yields:
+
+- Running yolo from a directory that's also listed in `YOLO_PODMAN_VOLUMES`
+  keeps the workspace mount (`:z`, shared/rw) and drops the config duplicate
+  (`:Z`) — avoiding podman's "duplicate mount point" rejection.
+- A worktree's original-repo mount overrides a config entry for the same path.
+- A CLI `-v` overrides config and default mounts (explicit user intent wins).
+
+Comparison is exact-string on host paths after `expand_volume` — no
+canonicalisation, so `~/data` and `$HOME/data` collapse (both expand to
+the same string) but `/foo/bar` and `/foo//bar` do not.
+
+CLI mount extraction handles `-v X`, `-v=X`, `--volume X`, `--volume=X`.
+Non-mount items in `PODMAN_ARGS` pass through unchanged.
 
 ---
 

@@ -172,6 +172,35 @@ expand_volume() {
     fi
 }
 
+# Deduplicate a flat list of mount specs by host path (the segment before
+# the first colon). When two entries share a host path, the LATER one in
+# the input wins; relative order among kept entries is preserved.
+# Writes result to the global DEDUPED_MOUNT_SPECS array.
+dedup_mount_specs() {
+    DEDUPED_MOUNT_SPECS=()
+    local n=$#
+    local i=1
+    while [ "$i" -le "$n" ]; do
+        local spec="${!i}"
+        local host="${spec%%:*}"
+        local j=$((i+1))
+        local found_later=0
+        while [ "$j" -le "$n" ]; do
+            local later="${!j}"
+            local later_host="${later%%:*}"
+            if [ "$later_host" = "$host" ]; then
+                found_later=1
+                break
+            fi
+            j=$((j+1))
+        done
+        if [ "$found_later" -eq 0 ]; then
+            DEDUPED_MOUNT_SPECS+=("$spec")
+        fi
+        i=$((i+1))
+    done
+}
+
 main() {
 set -e
 
@@ -190,6 +219,7 @@ USE_CONFIG=1
 YOLO_PODMAN_VOLUMES=()
 YOLO_PODMAN_OPTIONS=()
 YOLO_CLAUDE_ARGS=()
+CONFIG_MOUNT_SPECS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -321,10 +351,12 @@ if [ "$USE_CONFIG" -eq 1 ]; then
     YOLO_PODMAN_OPTIONS=("${_USER_OPTIONS[@]}" "${YOLO_PODMAN_OPTIONS[@]}")
     YOLO_CLAUDE_ARGS=("${_USER_CLAUDE_ARGS[@]}" "${YOLO_CLAUDE_ARGS[@]}")
 
-    # Process volumes and expand shorthand syntax
+    # Expand config volumes into a flat list of specs.
+    # Cross-source deduplication (config vs default mounts vs CLI) happens
+    # later, just before composing the podman command.
+    CONFIG_MOUNT_SPECS=()
     for vol in "${YOLO_PODMAN_VOLUMES[@]}"; do
-        expanded=$(expand_volume "$vol")
-        PODMAN_ARGS=("-v" "$expanded" "${PODMAN_ARGS[@]}")
+        CONFIG_MOUNT_SPECS+=("$(expand_volume "$vol")")
     done
 
     # Add podman options
@@ -343,7 +375,7 @@ CLAUDE_HOME_DIR="$HOME/.claude"
 mkdir -p "$CLAUDE_HOME_DIR"
 
 # Detect if we're in a git worktree and find the original repo
-WORKTREE_MOUNTS=()
+WORKTREE_MOUNT_SPECS=()
 gitdir_path=""
 dot_git="$(pwd)/.git"
 is_worktree=0
@@ -387,7 +419,7 @@ if [ "$is_worktree" -eq 1 ]; then
             exit 1
             ;;
         bind)
-            WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:z")
+            WORKTREE_MOUNT_SPECS+=("$original_repo_dir:$original_repo_dir:z")
             ;;
         skip)
             # Do nothing - skip bind mount
@@ -398,7 +430,7 @@ if [ "$is_worktree" -eq 1 ]; then
             read -p "Bind mount original repository? [y/N] " -n 1 -r >&2
             echo >&2
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                WORKTREE_MOUNTS+=("-v" "$original_repo_dir:$original_repo_dir:z")
+                WORKTREE_MOUNT_SPECS+=("$original_repo_dir:$original_repo_dir:z")
             fi
             ;;
     esac
@@ -452,13 +484,64 @@ if [ "$USE_NVIDIA" -eq 1 ]; then
     NVIDIA_ARGS+=(--security-opt "label=disable")
 fi
 
+# Extract -v / --volume entries from PODMAN_ARGS into CLI_MOUNT_SPECS so
+# they can participate in deduplication alongside config and default
+# mounts. Remaining (non-mount) options stay in PODMAN_ARGS.
+CLI_MOUNT_SPECS=()
+_NEW_PODMAN_ARGS=()
+_i=0
+while [ "$_i" -lt "${#PODMAN_ARGS[@]}" ]; do
+    case "${PODMAN_ARGS[$_i]}" in
+        -v|--volume)
+            if [ $((_i+1)) -lt "${#PODMAN_ARGS[@]}" ]; then
+                CLI_MOUNT_SPECS+=("${PODMAN_ARGS[$((_i+1))]}")
+                _i=$((_i+2))
+            else
+                # Trailing -v with no value — let podman complain about it
+                _NEW_PODMAN_ARGS+=("${PODMAN_ARGS[$_i]}")
+                _i=$((_i+1))
+            fi
+            ;;
+        -v=*|--volume=*)
+            CLI_MOUNT_SPECS+=("${PODMAN_ARGS[$_i]#*=}")
+            _i=$((_i+1))
+            ;;
+        *)
+            _NEW_PODMAN_ARGS+=("${PODMAN_ARGS[$_i]}")
+            _i=$((_i+1))
+            ;;
+    esac
+done
+PODMAN_ARGS=("${_NEW_PODMAN_ARGS[@]}")
+
+# Compose the unified mount list, ordered lowest-priority to highest.
+# dedup_mount_specs keeps the LAST occurrence per host path, so entries
+# later in this list override earlier ones with the same host path:
+#   1. Config volumes (lowest)         — from YOLO_PODMAN_VOLUMES
+#   2. yolo default mounts             — claude home, gitconfig, workspace
+#   3. Worktree-original-repo mount    — when applicable
+#   4. CLI -v / --volume (highest)     — explicit user intent on the command line
+# This means: workspace (CWD) overrides a config entry for the same path
+# (keeping the rw, shared :z label), worktree-original beats a config entry
+# for the same path, and any CLI -v overrides everything.
+ALL_MOUNT_SPECS=()
+ALL_MOUNT_SPECS+=("${CONFIG_MOUNT_SPECS[@]}")
+ALL_MOUNT_SPECS+=("$CLAUDE_MOUNT")
+ALL_MOUNT_SPECS+=("$HOME/.gitconfig:/tmp/.gitconfig:ro,z")
+ALL_MOUNT_SPECS+=("$WORKSPACE_MOUNT")
+ALL_MOUNT_SPECS+=("${WORKTREE_MOUNT_SPECS[@]}")
+ALL_MOUNT_SPECS+=("${CLI_MOUNT_SPECS[@]}")
+dedup_mount_specs "${ALL_MOUNT_SPECS[@]}"
+
+VOLUME_ARGS=()
+for spec in "${DEDUPED_MOUNT_SPECS[@]}"; do
+    VOLUME_ARGS+=("-v" "$spec")
+done
+
 podman run --log-driver=none -it --rm \
     --userns=keep-id:uid=1000,gid=1000 \
     --name="$name" \
-    -v "$CLAUDE_MOUNT" \
-    -v "$HOME/.gitconfig:/tmp/.gitconfig:ro,z" \
-    -v "$WORKSPACE_MOUNT" \
-    "${WORKTREE_MOUNTS[@]}" \
+    "${VOLUME_ARGS[@]}" \
     -w "$WORKSPACE_DIR" \
     -e CLAUDE_CONFIG_DIR="$CLAUDE_DIR" \
     -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
