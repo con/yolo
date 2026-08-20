@@ -242,29 +242,21 @@ It goes past enumeration on purpose: it creates a context, copies data both
 ways, and JIT-compiles and runs a real kernel, since GPUs routinely enumerate
 fine while compute fails on a driver/library mismatch or a bad device mount.
 
-The `cuda` extra installs the CUDA toolkit (`nvcc` and friends, no driver) from
-NVIDIA's own apt repository for the base image's Debian release, so it tracks
-current CUDA rather than the much older version Debian packages:
+**No CUDA toolkit is installed in the image, deliberately.** Everything above
+works on a stock build: CDI supplies the driver libraries, and that is all a
+GPU workload needs at runtime — PyTorch, JAX and friends ship their own CUDA
+runtime inside their wheels. Shipping a toolkit would add several GB and risk
+shadowing the injected host driver with a mismatched userspace, which is exactly
+the breakage reported in #79.
 
-```bash
-# Newest CUDA toolkit available
-./setup-yolo.sh --build=yes --extras=cuda
+`--extras=cuda` and `--cuda-version=` are still accepted so old invocations do
+not break, but they install nothing and print a note saying so. The only thing
+you lose is `nvcc` for compiling CUDA sources *inside* the container; if you
+need that, install it yourself — Debian's `nvidia-cuda-toolkit` is in non-free,
+which this image does not enable, so it means a local Dockerfile edit or an
+nvcc wheel via uv/pip.
 
-# Pinned release, for a host whose driver is older than current CUDA
-./setup-yolo.sh --build=yes --extras=cuda --cuda-version=12-8
-```
-
-A CUDA 13.x toolkit needs host driver >= 580, and 12.x needs >= 525; check yours
-with `nvidia-smi` (or `tools/gpu-check.py`, which prints the same driver
-version) and pin `--cuda-version=` accordingly. Pinning a CUDA older
-than about 12.5 on this base also needs an older host compiler — Debian 13 ships
-gcc 14, which those releases reject — so add
-`--packages=gcc-13,g++-13` and build with `nvcc -ccbin g++-13`.
-
-The full toolkit is large (several GB), so `--extras=cuda` — and therefore
-`--extras=all` — produces a correspondingly large image.
-
-`--extras`, `--packages`, `--cuda-version` and `--base-image` are not recorded
+`--extras`, `--packages` and `--base-image` are not recorded
 anywhere: a later `./setup-yolo.sh --build=yes` without them rebuilds the image
 with the defaults, so pass the same flags each time you rebuild.
 

@@ -306,7 +306,7 @@ side by side with the default one.
 
 The Debian release is pinned in the tag rather than tracking the rolling
 `node:24` tag (still Debian 12 "bookworm"), so distro-conditional build steps
-(Apptainer package flavour, CUDA repository) stay deterministic. Overridable
+(the Apptainer package flavour) stay deterministic. Overridable
 with the `BASE_IMAGE` build argument.
 
 Notable versions from the base: git 2.47.3 (bookworm shipped 2.39, which lacks
@@ -348,14 +348,12 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `TZ`                    | from host        | Timezone                                                        |
 | `CLAUDE_CODE_VERSION`   | `latest`         | Claude Code npm version                                         |
 | `EXTRA_PACKAGES`        | `""`             | Space-separated apt packages                                    |
-| `EXTRA_CUDA`            | `""`             | Set to `"1"` to enable CUDA toolkit                             |
 | `EXTRA_PLAYWRIGHT`      | `""`             | Set to `"1"` to enable Playwright + Chromium                    |
 | `EXTRA_DATALAD`         | `""`             | Set to `"1"` to enable DataLad                                  |
 | `EXTRA_JJ`              | `""`             | Set to `"1"` to enable Jujutsu                                  |
 | `EXTRA_DENO`            | `""`             | Set to `"1"` to enable Deno                                     |
 | `EXTRA_ENTIRE`          | `""`             | Set to `"1"` to enable Entire CLI                               |
 | `EXTRA_APPTAINER`       | `""`             | Set to `"1"` to enable Apptainer                                |
-| `CUDA_VERSION`          | `""`             | CUDA toolkit release, NVIDIA repo form (`13-0`); empty = newest |
 | `JJ_VERSION`            | `0.38.0`         | Jujutsu version                                                 |
 | `DENO_VERSION`          | `""`             | Deno version (empty = latest)                                   |
 | `APPTAINER_VERSION`     | `1.4.5`          | Apptainer version                                               |
@@ -364,14 +362,18 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 
 ### Optional Extras
 
-| Extra        | What's Installed                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `cuda`       | `cuda-toolkit` from NVIDIA's CUDA apt repository for the base image's Debian release (driver-free; the host driver is supplied by CDI at runtime). Also ensures a `/usr/local/cuda` symlink, writes `/etc/ld.so.conf.d/99-cuda-yolo.conf` for `/usr/local/cuda/lib64` and runs `ldconfig`. Adds several GB to the image. Runs last among apt-using steps so the NVIDIA repository it leaves configured cannot break other extras' `apt-get update`. Debian bases only |
-| `playwright` | System deps + `npm install -g playwright` + Chromium browser                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `jj`         | Musl binary from GitHub release + zsh completion                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)                                                                                                                                                                                                                                                                                                                                                                                                 || `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
+| Extra        | What's Installed                                                                          |
+|--------------|-------------------------------------------------------------------------------------------|
+| `playwright` | System deps + `npm install -g playwright` + Chromium browser                              |
+| `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`                    |
+| `jj`         | Musl binary from GitHub release + zsh completion                                          |
+| `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup                               |
+| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)                     |
+| `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
+
+No CUDA userspace is installed. GPU access is entirely a runtime concern —
+`yolo --nvidia` injects the host driver via CDI (§7) — and shipping a toolkit
+would risk shadowing those injected libraries with a mismatched userspace.
 
 ### Container Environment
 
@@ -382,7 +384,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `EDITOR`            | `vim`                                                                         |
 | `VISUAL`            | `vim`                                                                         |
 | `NPM_CONFIG_PREFIX` | `/usr/local/share/npm-global`                                                 |
-| `PATH`              | Includes npm-global/bin, `~/.local/bin`, `~/.deno/bin`, `/usr/local/cuda/bin` |
+| `PATH`              | Includes npm-global/bin, `~/.local/bin`, `~/.deno/bin` |
 
 ---
 
@@ -404,11 +406,13 @@ setup-yolo.sh [OPTIONS]
 | `--tag=TAG`          | `latest` | any valid image tag            | Tag to build/check                       |
 | `--packages=PKGS`    | `""`     | comma/space-separated          | Extra apt packages                       |
 | `--extras=EXTRAS`    | `""`     | comma-separated extras         | Predefined extras                        |
-| `--cuda-version=VER` | `""`     | `<major>-<minor>`, e.g. `13-0` | CUDA toolkit release for `--extras=cuda` |
 | `--base-image=IMAGE` | `""`     | image reference                | Override the base image                  |
 
-Valid extras: `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`,
-`apptainer`, and `all` (expands to every extra).
+Valid extras: `playwright`, `datalad`, `jj`, `deno`, `entire`, `apptainer`, and
+`all` (expands to every extra above). `cuda` is also accepted and
+`--cuda-version=VER` is parsed, but both are no-ops kept for backward
+compatibility: they install nothing, are not passed to the build, and print a
+note pointing at `yolo --nvidia`. `cuda` is not part of `all`.
 Image tags must match `^[A-Za-z0-9_][A-Za-z0-9._-]*$`.
 
 ### Build Behavior
@@ -443,7 +447,7 @@ After install, checks if `~/.local/bin` is in `$PATH` and warns if not.
 - `TZ` from `timedatectl` (falls back to `UTC`).
 - `CLAUDE_CACHEBUST` (current epoch seconds).
 - `EXTRA_PACKAGES` (space-separated).
-- `CUDA_VERSION` and `BASE_IMAGE` when non-empty.
+- `BASE_IMAGE` when non-empty.
 - Each extra as `EXTRA_$(UPPERCASE)=1`.
 
 ---

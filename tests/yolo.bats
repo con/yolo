@@ -298,40 +298,45 @@ EOF
 
 # ── setup-yolo.sh build arguments (end-to-end with mock podman) ───
 
-@test "setup: --extras=cuda passes EXTRA_CUDA build arg" {
+@test "setup: --extras=cuda is accepted but passes no build arg" {
     run_setup --build=yes --extras=cuda
     assert_success
-    podman_args_contain "EXTRA_CUDA=1"
+    refute_podman_arg "EXTRA_CUDA=1"
 }
 
-@test "setup: --cuda-version passes CUDA_VERSION build arg" {
-    run_setup --build=yes --extras=cuda --cuda-version=12-8
-    assert_success
-    podman_args_contain "CUDA_VERSION=12-8"
-}
-
-@test "setup: --cuda-version is omitted when not given" {
+@test "setup: --extras=cuda prints the no-op note" {
     run_setup --build=yes --extras=cuda
     assert_success
+    assert_output --partial "the cuda extra installs nothing"
+    assert_output --partial "yolo --nvidia"
+}
+
+@test "setup: --cuda-version is accepted but passes no build arg" {
+    run_setup --build=yes --cuda-version=12-8
+    assert_success
+    assert_output --partial "the cuda extra installs nothing"
     refute_podman_arg "CUDA_VERSION="
 }
 
-@test "setup: --cuda-version=13.0 (dotted) is rejected" {
-    run_setup --build=yes --extras=cuda --cuda-version=13.0
-    assert_failure
-    assert_output --partial "--cuda-version expects NVIDIA repository form"
+@test "setup: --cuda-version=13.0 (dotted) is no longer rejected" {
+    run_setup --build=yes --cuda-version=13.0
+    assert_success
 }
 
-@test "setup: --cuda-version without --extras=cuda warns" {
-    run_setup --build=yes --cuda-version=12-8
+@test "setup: --extras=all excludes cuda and prints no note" {
+    run_setup --build=yes --extras=all
     assert_success
-    assert_output --partial "--cuda-version has no effect without --extras=cuda"
+    refute_output --partial "installs nothing"
+    refute_podman_arg "EXTRA_CUDA=1"
+    podman_args_contain "EXTRA_PLAYWRIGHT=1"
+    podman_args_contain "EXTRA_APPTAINER=1"
 }
 
-@test "setup: --cuda-version with --extras=all does not warn" {
-    run_setup --build=yes --extras=all --cuda-version=12-8
+@test "setup: --extras=cuda,jj still passes the real extra" {
+    run_setup --build=yes --extras=cuda,jj
     assert_success
-    refute_output --partial "has no effect"
+    podman_args_contain "EXTRA_JJ=1"
+    refute_podman_arg "EXTRA_CUDA=1"
 }
 
 @test "setup: --base-image passes BASE_IMAGE build arg" {

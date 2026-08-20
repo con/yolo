@@ -10,7 +10,7 @@ BUILD_MODE="auto"
 INSTALL_MODE="auto"
 EXTRA_PACKAGES=""
 EXTRAS=""
-CUDA_VERSION=""
+CUDA_NOOP=0
 BASE_IMAGE=""
 IMAGE_TAG="latest"
 
@@ -36,20 +36,20 @@ OPTIONS:
     --packages=PKGS         Extra apt packages to install in the container image
                             (comma or space-separated, requires rebuild)
     --extras=EXTRAS         Predefined extras to include (comma-separated):
-                            cuda       - NVIDIA CUDA toolkit for building GPU extensions
-                                         (experimental)
+                            cuda       - accepted for backward compatibility;
+                                         installs nothing (GPU access needs no
+                                         build-time support; use 'yolo --nvidia')
                             playwright - Playwright with Chromium for browser automation
                             datalad    - DataLad with datalad-container and datalad-next
                             jj         - Jujutsu version control system
                             deno       - Deno JS/TS runtime and formatter
                             entire     - Entire CLI (entireio/cli)
                             apptainer  - Apptainer container runtime (rootless)
-                            all        - Enable all extras
-    --cuda-version=VER      CUDA toolkit release to install with --extras=cuda,
-                            in NVIDIA repository form (e.g. 13-0, 12-8).
-                            Default: newest available. Pin this when the host
-                            NVIDIA driver is older than the current CUDA release
-                            (13.x needs driver >= 580, 12.x needs >= 525).
+                            all        - Enable every extra that installs something
+    --cuda-version=VER      Accepted for backward compatibility; installs
+                            nothing. The image ships no CUDA userspace on
+                            purpose so it cannot shadow the host driver
+                            libraries that CDI injects at runtime.
     --base-image=IMAGE      Override the Dockerfile's default base image
                             (see BASE_IMAGE in images/Dockerfile)
 
@@ -72,11 +72,8 @@ EXAMPLES:
     # Build with extra packages (e.g., ffmpeg, imagemagick)
     ./setup-yolo.sh --build=yes --packages="ffmpeg,imagemagick"
 
-    # Build with NVIDIA CUDA toolkit (newest release)
-    ./setup-yolo.sh --build=yes --extras=cuda
-
-    # Build with a CUDA toolkit pinned to match an older host driver
-    ./setup-yolo.sh --build=yes --extras=cuda --cuda-version=12-8
+    # GPU access needs no special build; pass the device through at runtime
+    yolo --nvidia
 
     # Build with Playwright browser automation
     ./setup-yolo.sh --build=yes --extras=playwright
@@ -134,7 +131,7 @@ while [[ $# -gt 0 ]]; do
             EXTRAS="${1#*=}"
             # Expand "all" to all available extras
             if [[ "$EXTRAS" == "all" ]]; then
-                EXTRAS="cuda,playwright,datalad,jj,deno,entire,apptainer"
+                EXTRAS="playwright,datalad,jj,deno,entire,apptainer"
             fi
             # Validate extras
             for extra in ${EXTRAS//,/ }; do
@@ -146,11 +143,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --cuda-version=*)
-            CUDA_VERSION="${1#*=}"
-            if [[ ! "$CUDA_VERSION" =~ ^[0-9]+-[0-9]+$ ]]; then
-                echo "Error: --cuda-version expects NVIDIA repository form, e.g. 13-0 or 12-8"
-                exit 1
-            fi
+            CUDA_NOOP=1
             shift
             ;;
         --base-image=*)
@@ -165,8 +158,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [ -n "$CUDA_VERSION" ] && [[ ",$EXTRAS," != *,cuda,* ]]; then
-    echo "Warning: --cuda-version has no effect without --extras=cuda" >&2
+if [ "$CUDA_NOOP" -eq 1 ] || [[ ",$EXTRAS," == *,cuda,* ]]; then
+    echo "Note: the cuda extra installs nothing. GPU access is a runtime" >&2
+    echo "      setting — run 'yolo --nvidia', which passes the host GPU" >&2
+    echo "      through with CDI, then check it with tools/gpu-check.py." >&2
 fi
 
 # Fully qualified image reference to build/check
@@ -200,9 +195,6 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     if [ -n "$EXTRAS" ]; then
         echo "Extras: $EXTRAS"
     fi
-    if [ -n "$CUDA_VERSION" ]; then
-        echo "CUDA toolkit: $CUDA_VERSION"
-    fi
     if [ -n "$BASE_IMAGE" ]; then
         echo "Base image: $BASE_IMAGE"
     fi
@@ -214,14 +206,14 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     if [ -n "$EXTRA_PACKAGES" ]; then
         BUILD_ARGS+=(--build-arg "EXTRA_PACKAGES=$EXTRA_PACKAGES")
     fi
-    if [ -n "$CUDA_VERSION" ]; then
-        BUILD_ARGS+=(--build-arg "CUDA_VERSION=$CUDA_VERSION")
-    fi
     if [ -n "$BASE_IMAGE" ]; then
         BUILD_ARGS+=(--build-arg "BASE_IMAGE=$BASE_IMAGE")
     fi
-    # Pass individual extras as build args
+    # Pass individual extras as build args.
+    # 'cuda' is accepted but installs nothing, and the Dockerfile declares no
+    # EXTRA_CUDA, so passing it would only produce an unused-build-arg warning.
     for extra in ${EXTRAS//,/ }; do
+        [ "$extra" = "cuda" ] && continue
         BUILD_ARGS+=(--build-arg "EXTRA_$(echo "$extra" | tr '[:lower:]' '[:upper:]')=1")
     done
     podman build "${BUILD_ARGS[@]}" -t "$IMAGE" "$DOCKERFILE_DIR"
