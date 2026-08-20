@@ -190,7 +190,17 @@ current CUDA rather than the much older version Debian packages:
 ```
 
 A CUDA 13.x toolkit needs host driver >= 580, and 12.x needs >= 525; check yours
-with `nvidia-smi` and pin `--cuda-version=` accordingly.
+with `nvidia-smi` and pin `--cuda-version=` accordingly. Pinning a CUDA older
+than about 12.5 on this base also needs an older host compiler — Debian 13 ships
+gcc 14, which those releases reject — so add
+`--packages=gcc-13,g++-13` and build with `nvcc -ccbin g++-13`.
+
+The full toolkit is large (several GB), so `--extras=cuda` — and therefore
+`--extras=all` — produces a correspondingly large image.
+
+`--extras`, `--packages`, `--cuda-version` and `--base-image` are not recorded
+anywhere: a later `./setup-yolo.sh --build=yes` without them rebuilds the image
+with the defaults, so pass the same flags each time you rebuild.
 
 ## Command Breakdown
 

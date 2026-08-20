@@ -61,50 +61,6 @@ RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
       npx playwright install-deps chromium; \
     fi
 
-# NVIDIA CUDA toolkit for building CUDA extensions
-# Runtime GPU access (nvidia-smi, driver libraries) is handled by CDI at
-# container runtime; run with --device nvidia.com/gpu=all (yolo --nvidia).
-#
-# Installed from NVIDIA's own CUDA apt repository rather than Debian's
-# nvidia-cuda-toolkit, because the Debian package (a) lags far behind — 11.8 in
-# bookworm, 12.4 in trixie — and (b) drags in libcuda1/driver userspace, which
-# then shadows the host driver libraries CDI injects and yields a
-# driver/userspace version mismatch inside the container.  See con/yolo#79.
-# The cuda-toolkit meta-package is driver-free by design, so the container keeps
-# using the host's driver.
-#
-# CUDA_VERSION pins a toolkit release ("13-0", "12-8", ...); empty installs the
-# newest one in the repository.  A CUDA 13.x toolkit requires host driver >= 580,
-# 12.x requires >= 525, so pin it if the host driver is older than the current
-# CUDA release.
-ARG CUDA_VERSION=""
-RUN if [ "$EXTRA_CUDA" = "1" ]; then \
-      . /etc/os-release && \
-      if [ -z "$VERSION_ID" ]; then \
-        echo "EXTRA_CUDA needs a released Debian base ($PRETTY_NAME has no VERSION_ID); NVIDIA publishes no repo for it" && exit 1; \
-      fi && \
-      ARCH=$(dpkg --print-architecture) && \
-      case "$ARCH" in \
-        amd64) REPO_ARCH=x86_64 ;; \
-        arm64) REPO_ARCH=sbsa ;; \
-        *) echo "EXTRA_CUDA does not support architecture $ARCH" && exit 1 ;; \
-      esac && \
-      wget -qO /tmp/cuda-keyring.deb \
-        "https://developer.download.nvidia.com/compute/cuda/repos/debian${VERSION_ID%%.*}/${REPO_ARCH}/cuda-keyring_1.1-1_all.deb" && \
-      dpkg -i /tmp/cuda-keyring.deb && \
-      rm /tmp/cuda-keyring.deb && \
-      apt-get update && \
-      apt-get install -y --no-install-recommends "cuda-toolkit${CUDA_VERSION:+-$CUDA_VERSION}" && \
-      if [ ! -e /usr/local/cuda ]; then \
-        ln -s "$(ls -d /usr/local/cuda-*/ | sort -V | tail -1)" /usr/local/cuda; \
-      fi && \
-      echo /usr/local/cuda/lib64 > /etc/ld.so.conf.d/000-cuda-yolo.conf && ldconfig && \
-      apt-get clean && rm -rf /var/lib/apt/lists/*; \
-    fi
-
-# nvcc lives outside the default PATH; harmless when EXTRA_CUDA is not enabled
-ENV PATH="$PATH:/usr/local/cuda/bin"
-
 # Apptainer (rootless container/SIF runtime) — upstream Debian install instructions:
 # https://apptainer.org/docs/admin/main/installation.html#install-debian-packages
 ARG EXTRA_APPTAINER=""
@@ -127,6 +83,62 @@ RUN if [ "$EXTRA_APPTAINER" = "1" ]; then \
       apt-get clean && rm -rf /var/lib/apt/lists/* && \
       rm "/tmp/${DEB}"; \
     fi
+
+# NVIDIA CUDA toolkit for building CUDA extensions
+#
+# Deliberately the last apt-using step: the CUDA keyring package leaves an apt
+# source (and a Pin-Priority 600) behind, and an earlier placement would make
+# every later `apt-get update` — e.g. the Apptainer step above — depend on
+# developer.download.nvidia.com being reachable, failing unrelated extras when
+# it is not.
+#
+# Runtime GPU access (nvidia-smi, driver libraries) is handled by CDI at
+# container runtime; run with --device nvidia.com/gpu=all (yolo --nvidia).
+#
+# Installed from NVIDIA's own CUDA apt repository rather than Debian's
+# nvidia-cuda-toolkit, because the Debian package (a) lags far behind — 11.8 in
+# bookworm, 12.4 in trixie — and (b) drags in libcuda1/driver userspace, which
+# then shadows the host driver libraries CDI injects and yields a
+# driver/userspace version mismatch inside the container.  See con/yolo#79.
+# The cuda-toolkit meta-package is driver-free by design, so the container keeps
+# using the host's driver.  Note that it is big: the full toolkit (nvcc, the
+# math libraries, Nsight) adds several GB to the image.
+#
+# CUDA_VERSION pins a toolkit release ("13-0", "12-8", ...); empty installs the
+# newest one in the repository.  A CUDA 13.x toolkit requires host driver >= 580,
+# 12.x requires >= 525, so pin it if the host driver is older than the current
+# CUDA release.
+ARG CUDA_VERSION=""
+RUN if [ "$EXTRA_CUDA" = "1" ]; then \
+      . /etc/os-release && \
+      if [ "$ID" != "debian" ] || [ -z "$VERSION_ID" ]; then \
+        echo "EXTRA_CUDA needs a released Debian base (got ID=$ID VERSION_ID=$VERSION_ID); NVIDIA publishes no matching repository" && exit 1; \
+      fi && \
+      ARCH=$(dpkg --print-architecture) && \
+      case "$ARCH" in \
+        amd64) REPO_ARCH=x86_64 ;; \
+        arm64) REPO_ARCH=sbsa ;; \
+        *) echo "EXTRA_CUDA does not support architecture $ARCH" && exit 1 ;; \
+      esac && \
+      wget -qO /tmp/cuda-keyring.deb \
+        "https://developer.download.nvidia.com/compute/cuda/repos/debian${VERSION_ID%%.*}/${REPO_ARCH}/cuda-keyring_1.1-1_all.deb" && \
+      dpkg -i /tmp/cuda-keyring.deb && \
+      rm /tmp/cuda-keyring.deb && \
+      apt-get update && \
+      apt-get install -y --no-install-recommends "cuda-toolkit${CUDA_VERSION:+-$CUDA_VERSION}" && \
+      if [ ! -e /usr/local/cuda ]; then \
+        ln -sfn "$(ls -d /usr/local/cuda-*/ | sed 's:/*$::' | sort -V | tail -1)" /usr/local/cuda; \
+      fi && \
+      echo /usr/local/cuda/lib64 > /etc/ld.so.conf.d/99-cuda-yolo.conf && ldconfig && \
+      apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# nvcc lives outside the default PATH; appending is harmless when EXTRA_CUDA is
+# not enabled.  CUDA_HOME is deliberately NOT set: PyTorch's cpp_extension and
+# CMake's FindCUDAToolkit both derive it from nvcc's location when it is unset,
+# whereas an unconditional CUDA_HOME pointing at a non-existent directory makes
+# them misdetect a CUDA install in images built without the extra.
+ENV PATH="$PATH:/usr/local/cuda/bin"
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \

@@ -315,7 +315,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 
 | Extra        | What's Installed                                                        |
 |--------------|-------------------------------------------------------------------------|
-| `cuda`       | `cuda-toolkit` from NVIDIA's CUDA apt repository for the base image's Debian release (driver-free; the host driver is supplied by CDI at runtime) |
+| `cuda`       | `cuda-toolkit` from NVIDIA's CUDA apt repository for the base image's Debian release (driver-free; the host driver is supplied by CDI at runtime). Also ensures a `/usr/local/cuda` symlink, writes `/etc/ld.so.conf.d/99-cuda-yolo.conf` for `/usr/local/cuda/lib64` and runs `ldconfig`. Adds several GB to the image. Runs last among apt-using steps so the NVIDIA repository it leaves configured cannot break other extras' `apt-get update`. Debian bases only |
 | `playwright` | System deps + `npm install -g playwright` + Chromium browser            |
 | `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`  |
 | `jj`         | Musl binary from GitHub release + zsh completion                        |

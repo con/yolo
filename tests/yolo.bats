@@ -256,6 +256,18 @@ EOF
     assert_output --partial "--cuda-version expects NVIDIA repository form"
 }
 
+@test "setup: --cuda-version without --extras=cuda warns" {
+    run_setup --build=yes --cuda-version=12-8
+    assert_success
+    assert_output --partial "--cuda-version has no effect without --extras=cuda"
+}
+
+@test "setup: --cuda-version with --extras=all does not warn" {
+    run_setup --build=yes --extras=all --cuda-version=12-8
+    assert_success
+    refute_output --partial "has no effect"
+}
+
 @test "setup: --base-image passes BASE_IMAGE build arg" {
     run_setup --build=yes --base-image=node:22-trixie
     assert_success

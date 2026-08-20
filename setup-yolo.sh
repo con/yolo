@@ -46,7 +46,8 @@ OPTIONS:
                             Default: newest available. Pin this when the host
                             NVIDIA driver is older than the current CUDA release
                             (13.x needs driver >= 580, 12.x needs >= 525).
-    --base-image=IMAGE      Base container image (default: node:24-trixie)
+    --base-image=IMAGE      Override the Dockerfile's default base image
+                            (see BASE_IMAGE in images/Dockerfile)
 
 EXAMPLES:
     # Interactive setup (default)
@@ -145,6 +146,10 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ -n "$CUDA_VERSION" ] && [[ ",$EXTRAS," != *,cuda,* ]]; then
+    echo "Warning: --cuda-version has no effect without --extras=cuda" >&2
+fi
 
 echo "🚀 Claude Code YOLO Mode Setup"
 echo "================================"
