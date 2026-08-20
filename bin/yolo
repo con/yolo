@@ -12,6 +12,8 @@ OPTIONS:
     --anonymized-paths   Use anonymized paths (/claude, /workspace) instead of
                          preserving host paths
     --entrypoint=CMD     Override the container entrypoint (default: claude)
+    --tag=TAG            Use image tag TAG (default: latest), i.e. run
+                         con-bomination-claude-code:TAG
     --worktree=MODE      Git worktree handling: ask, bind, skip, error
                          (default: ask)
     --nvidia             Enable NVIDIA GPU passthrough via CDI
@@ -27,6 +29,7 @@ EXAMPLES:
     yolo -v /data:/data               # Extra mount
     yolo -- "help with this code"     # Pass args to claude
     yolo --nvidia -- --resume         # GPU + claude args
+    yolo --tag=test                   # Use the :test image instead of :latest
 
 NVIDIA GPU SETUP:
     The --nvidia flag uses CDI (Container Device Interface) for GPU access.
@@ -44,6 +47,7 @@ CONFIGURATION:
     - YOLO_PODMAN_VOLUMES: array of volume mounts
     - YOLO_PODMAN_OPTIONS: array of podman options
     - YOLO_CLAUDE_ARGS: array of arguments for claude
+    - YOLO_IMAGE_TAG: image tag to run (default: latest)
     - USE_ANONYMIZED_PATHS: 0 or 1
     - USE_NVIDIA: 0 or 1
     - WORKTREE_MODE: ask, bind, skip, or error
@@ -86,6 +90,9 @@ YOLO_PODMAN_OPTIONS=(
 YOLO_CLAUDE_ARGS=(
     # "--model=claude-3-opus-20240229"
 )
+
+# Container image tag to run (built by setup-yolo.sh --tag=...)
+# YOLO_IMAGE_TAG="latest"
 
 # Default flags (0 or 1)
 # USE_ANONYMIZED_PATHS=0
@@ -172,11 +179,22 @@ expand_volume() {
     fi
 }
 
+# Validate a container image tag (podman/OCI tag grammar)
+validate_image_tag() {
+    local tag="$1"
+    if [[ ! "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]]; then
+        echo "Error: Invalid image tag: $tag" >&2
+        echo "Tags must start with an alphanumeric or _ and contain only [A-Za-z0-9._-]" >&2
+        return 1
+    fi
+}
+
 main() {
 set -e
 
 # Parse arguments: everything before -- goes to podman, everything after goes to claude
-# Also check for --anonymized-paths, --entrypoint, --worktree, --nvidia, --no-config, and --install-config flags
+# Also check for --anonymized-paths, --entrypoint, --tag, --worktree, --nvidia, --no-config,
+# and --install-config flags
 PODMAN_ARGS=()
 CLAUDE_ARGS=()
 found_separator=0
@@ -185,6 +203,12 @@ ENTRYPOINT="claude"
 WORKTREE_MODE="ask"
 USE_NVIDIA=0
 USE_CONFIG=1
+
+# Image to run. The tag may come from the environment, config files, or --tag
+# (in increasing order of precedence).
+IMAGE_NAME="con-bomination-claude-code"
+YOLO_IMAGE_TAG="${YOLO_IMAGE_TAG:-latest}"
+IMAGE_TAG_CLI=""
 
 # Initialize config arrays
 YOLO_PODMAN_VOLUMES=()
@@ -205,6 +229,16 @@ while [ $# -gt 0 ]; do
             ;;
         --entrypoint=*)
             ENTRYPOINT="${1#--entrypoint=}"
+            shift
+            ;;
+        --tag)
+            IMAGE_TAG_CLI="$2"
+            validate_image_tag "$IMAGE_TAG_CLI" || exit 1
+            shift 2
+            ;;
+        --tag=*)
+            IMAGE_TAG_CLI="${1#--tag=}"
+            validate_image_tag "$IMAGE_TAG_CLI" || exit 1
             shift
             ;;
         --worktree=*)
@@ -338,6 +372,11 @@ if [ "$USE_CONFIG" -eq 1 ]; then
     fi
 fi
 
+# --tag wins over YOLO_IMAGE_TAG from the environment or config files
+IMAGE_TAG="${IMAGE_TAG_CLI:-${YOLO_IMAGE_TAG:-latest}}"
+validate_image_tag "$IMAGE_TAG" || exit 1
+IMAGE="$IMAGE_NAME:$IMAGE_TAG"
+
 CLAUDE_HOME_DIR="$HOME/.claude"
 # must exist but might not if first start on that box
 mkdir -p "$CLAUDE_HOME_DIR"
@@ -466,7 +505,7 @@ podman run --log-driver=none -it --rm \
     -e CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS \
     "${NVIDIA_ARGS[@]}" \
     "${PODMAN_ARGS[@]}" \
-    con-bomination-claude-code \
+    "$IMAGE" \
     "${CONTAINER_CMD[@]}"
 }
 
