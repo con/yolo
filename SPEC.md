@@ -14,6 +14,7 @@ per-action approval to keep the host safe.
 | `setup-yolo.sh`    | Setup script     | Builds the container image and installs `bin/yolo` |
 | `images/Dockerfile` | Image definition | Development environment with Claude Code          |
 | `config.example`   | Template         | Documented config file template                   |
+| `tools/gpu-check.py` | GPU probe      | Verifies GPU passthrough without `nvidia-smi`     |
 
 ---
 
@@ -209,6 +210,37 @@ When `USE_NVIDIA=1`:
 2. Warn to stderr if not found (does not fail).
 3. Add `--device nvidia.com/gpu=all` to podman args.
 4. Add `--security-opt label=disable` to allow GPU device access with SELinux.
+
+### Verifying Access (`tools/gpu-check.py`)
+
+CDI injects the host's driver libraries and device nodes, but not the
+`nvidia-smi` binary, so a container with working GPU access can still have no
+CLI to confirm it. `tools/gpu-check.py` confirms it using only the Python
+standard library (`ctypes`), so it needs no CUDA toolkit and no pip packages:
+
+| Layer         | Source                       | Reports                                    |
+|---------------|------------------------------|--------------------------------------------|
+| Kernel driver | `/proc/driver/nvidia`, `/dev` | Driver version, device nodes, GPU model    |
+| Telemetry     | `libnvidia-ml.so.1` (NVML)   | Utilization, memory, temperature, power    |
+| Compute       | `libcuda.so.1` (driver API)  | The checks below                           |
+
+Per-device compute checks, in order:
+
+1. `context create` — `cuCtxCreate`.
+2. `device allocation` — `cuMemAlloc` of `--alloc-mib` MiB (default 64).
+3. `host<->device copy` — `cuMemcpyHtoD` + `cuMemcpyDtoH`, byte-compared.
+4. `device-side memset` — `cuMemsetD32`, read back and verified.
+5. `kernel launch` — a vector add JIT-compiled from PTX embedded in the script.
+   The `.target` comes from the device's compute capability and the `.version`
+   from the driver's CUDA version, so no toolkit and no pinned arch is involved.
+
+Flags: `--json` (full report), `--quiet` (exit code only), `--alloc-mib N`.
+
+| Exit code | Meaning                                       |
+|-----------|-----------------------------------------------|
+| 0         | GPU present and usable for compute            |
+| 1         | GPU present but at least one check failed     |
+| 2         | No GPU or driver visible in this container    |
 
 ---
 
@@ -427,9 +459,14 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 
 ### Test Infrastructure
 
+- `tests/yolo.bats` covers the CLI and setup script; `tests/gpu.bats` covers
+  `tools/gpu-check.py`.
 - Mock podman binary captures all arguments to a file for inspection.
 - Isolated test environment: `$BATS_TEST_TMPDIR` with fake `$HOME`, git repo, and PATH.
 - Helper functions: `run_yolo()`, `get_podman_args()`, `podman_args_contain()`, `refute_podman_arg()`, `write_user_config()`, `write_project_config()`.
+- GPU helpers: `run_gpu_check()`, `has_gpu()`, `require_gpu()`, `require_python()`.
+  Hardware-dependent tests `skip` where no GPU is visible, so `bats tests/`
+  passes unchanged on CI runners and macOS.
 - `bin/yolo` is sourceable without side effects via `BASH_SOURCE` guard.
 
 ### Test Coverage
@@ -442,6 +479,11 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 - Environment variable passthrough
 - Container naming
 - Config template generation
+- `tools/gpu-check.py`: stdlib-only imports, `--help`, `--json` shape, exit
+  status matching GPU presence, and the no-driver path (stubbed, so it is
+  covered on GPU hosts too)
+- On real hardware only: driver reporting, `--alloc-mib`, and every compute
+  check passing
 
 ---
 

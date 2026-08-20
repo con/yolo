@@ -177,6 +177,38 @@ different base:
 NVIDIA driver libraries into the container — so the image itself must not ship a
 driver of its own.
 
+`yolo --nvidia` does not bring `nvidia-smi` with it, so to confirm the
+passthrough actually worked, run the bundled probe — Python standard library
+only, no toolkit or pip packages needed:
+
+```bash
+tools/gpu-check.py            # human-readable report
+tools/gpu-check.py --json     # machine-readable
+tools/gpu-check.py --quiet    # exit code only: 0 usable, 1 broken, 2 no GPU
+```
+
+```
+kernel driver:   590.48.01
+device nodes:    nvidia-modeset, nvidia-uvm, nvidia-uvm-tools, nvidia0, nvidiactl
+CUDA driver API: 13.1
+
+GPU 0: NVIDIA A100-PCIE-40GB
+  compute capability  8.0 (108 SMs)
+  memory              40441 MiB total, 40008 MiB free
+  telemetry           5% busy, 33 C, 42.5 W
+  context create      OK
+  device allocation   OK (64 MiB)
+  host<->device copy  OK
+  device-side memset  OK
+  kernel launch       OK (1048576 elements, JIT from PTX ISA 9.0)
+
+GPU compute is available.
+```
+
+It goes past enumeration on purpose: it creates a context, copies data both
+ways, and JIT-compiles and runs a real kernel, since GPUs routinely enumerate
+fine while compute fails on a driver/library mismatch or a bad device mount.
+
 The `cuda` extra installs the CUDA toolkit (`nvcc` and friends, no driver) from
 NVIDIA's own apt repository for the base image's Debian release, so it tracks
 current CUDA rather than the much older version Debian packages:
@@ -190,7 +222,8 @@ current CUDA rather than the much older version Debian packages:
 ```
 
 A CUDA 13.x toolkit needs host driver >= 580, and 12.x needs >= 525; check yours
-with `nvidia-smi` and pin `--cuda-version=` accordingly. Pinning a CUDA older
+with `nvidia-smi` (or `tools/gpu-check.py`, which prints the same driver
+version) and pin `--cuda-version=` accordingly. Pinning a CUDA older
 than about 12.5 on this base also needs an older host compiler — Debian 13 ships
 gcc 14, which those releases reject — so add
 `--packages=gcc-13,g++-13` and build with `nvcc -ccbin g++-13`.
