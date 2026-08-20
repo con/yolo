@@ -73,6 +73,31 @@ EOF
     refute_podman_arg "--dangerously-skip-permissions"
 }
 
+@test "--tag: default image reference is :latest" {
+    run_yolo
+    assert_success
+    podman_args_contain "con-bomination-claude-code:latest"
+}
+
+@test "--tag=TAG: image reference uses the given tag" {
+    run_yolo --tag=test
+    assert_success
+    podman_args_contain "con-bomination-claude-code:test"
+    refute_podman_arg "con-bomination-claude-code:latest"
+}
+
+@test "--tag TAG: space-separated form works" {
+    run_yolo --tag test
+    assert_success
+    podman_args_contain "con-bomination-claude-code:test"
+}
+
+@test "--tag: invalid tag exits with error" {
+    run_yolo --tag="bad:tag"
+    assert_failure
+    assert_output --partial "Invalid image tag"
+}
+
 @test "--worktree=invalid: exits with error" {
     run_yolo --worktree=invalid
     assert_failure
@@ -191,6 +216,47 @@ EOF
     run_yolo
     assert_success
     podman_args_contain "--verbose"
+}
+
+@test "config: YOLO_IMAGE_TAG selects the image tag" {
+    write_user_config << 'EOF'
+YOLO_IMAGE_TAG="from-config"
+EOF
+    run_yolo
+    assert_success
+    podman_args_contain "con-bomination-claude-code:from-config"
+}
+
+@test "config: project YOLO_IMAGE_TAG overrides user-wide one" {
+    write_user_config << 'EOF'
+YOLO_IMAGE_TAG="from-user"
+EOF
+    write_project_config << 'EOF'
+YOLO_IMAGE_TAG="from-project"
+EOF
+    run_yolo
+    assert_success
+    podman_args_contain "con-bomination-claude-code:from-project"
+    refute_podman_arg "con-bomination-claude-code:from-user"
+}
+
+@test "config: --tag overrides YOLO_IMAGE_TAG from config" {
+    write_project_config << 'EOF'
+YOLO_IMAGE_TAG="from-config"
+EOF
+    run_yolo --tag=from-cli
+    assert_success
+    podman_args_contain "con-bomination-claude-code:from-cli"
+    refute_podman_arg "con-bomination-claude-code:from-config"
+}
+
+@test "config: --no-config ignores YOLO_IMAGE_TAG from config files" {
+    write_project_config << 'EOF'
+YOLO_IMAGE_TAG="from-config"
+EOF
+    run_yolo --no-config
+    assert_success
+    podman_args_contain "con-bomination-claude-code:latest"
 }
 
 # ── Environment variables & container setup ───────────────────────

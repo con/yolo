@@ -12,6 +12,7 @@ EXTRA_PACKAGES=""
 EXTRAS=""
 CUDA_VERSION=""
 BASE_IMAGE=""
+IMAGE_TAG="latest"
 
 show_help() {
     cat << EOF
@@ -29,6 +30,9 @@ OPTIONS:
                             auto - install if missing or prompt if exists and differs
                             yes  - always install/overwrite without prompting
                             no   - skip installation
+    --tag=TAG               Tag to build/check the image with (default: latest)
+                            Use to keep test images alongside the default one,
+                            then run them with 'yolo --tag=TAG'
     --packages=PKGS         Extra apt packages to install in the container image
                             (comma or space-separated, requires rebuild)
     --extras=EXTRAS         Predefined extras to include (comma-separated):
@@ -80,6 +84,11 @@ EXAMPLES:
     # Build with all extras
     ./setup-yolo.sh --build=yes --extras=all
 
+    # Build a throw-away test image without touching :latest or ~/.local/bin/yolo
+    ./setup-yolo.sh --build=yes --install=no --tag=test
+    # ... then use it with:
+    #   yolo --tag=test
+
 EOF
     exit 0
 }
@@ -102,6 +111,15 @@ while [[ $# -gt 0 ]]; do
             INSTALL_MODE="${1#*=}"
             if [[ ! "$INSTALL_MODE" =~ ^(auto|yes|no)$ ]]; then
                 echo "Error: --install must be one of: auto, yes, no"
+                exit 1
+            fi
+            shift
+            ;;
+        --tag=*)
+            IMAGE_TAG="${1#*=}"
+            if [[ ! "$IMAGE_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]]; then
+                echo "Error: Invalid image tag: $IMAGE_TAG"
+                echo "Tags must start with an alphanumeric or _ and contain only [A-Za-z0-9._-]"
                 exit 1
             fi
             shift
@@ -151,27 +169,30 @@ if [ -n "$CUDA_VERSION" ] && [[ ",$EXTRAS," != *,cuda,* ]]; then
     echo "Warning: --cuda-version has no effect without --extras=cuda" >&2
 fi
 
+# Fully qualified image reference to build/check
+IMAGE="$IMAGE_NAME:$IMAGE_TAG"
+
 echo "🚀 Claude Code YOLO Mode Setup"
 echo "================================"
 echo
 
 # Handle image building based on BUILD_MODE
 IMAGE_EXISTS=false
-if podman image exists "$IMAGE_NAME" 2>/dev/null; then
+if podman image exists "$IMAGE" 2>/dev/null; then
     IMAGE_EXISTS=true
 fi
 
 if [ "$BUILD_MODE" = "no" ]; then
     if [ "$IMAGE_EXISTS" = false ]; then
-        echo "Error: Image '$IMAGE_NAME' does not exist and --build=no was specified"
+        echo "Error: Image '$IMAGE' does not exist and --build=no was specified"
         exit 1
     fi
     echo "✓ Skipping build (--build=no specified)"
 elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     if [ "$BUILD_MODE" = "yes" ]; then
-        echo "Rebuilding container image '$IMAGE_NAME'..."
+        echo "Rebuilding container image '$IMAGE'..."
     else
-        echo "Building container image '$IMAGE_NAME'..."
+        echo "Building container image '$IMAGE'..."
     fi
     if [ -n "$EXTRA_PACKAGES" ]; then
         echo "Extra packages: $EXTRA_PACKAGES"
@@ -203,13 +224,13 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     for extra in ${EXTRAS//,/ }; do
         BUILD_ARGS+=(--build-arg "EXTRA_$(echo "$extra" | tr '[:lower:]' '[:upper:]')=1")
     done
-    podman build "${BUILD_ARGS[@]}" -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
+    podman build "${BUILD_ARGS[@]}" -t "$IMAGE" "$DOCKERFILE_DIR"
 
     echo
     echo "✓ Container image built successfully"
 else
     # BUILD_MODE=auto and image exists
-    echo "✓ Container image '$IMAGE_NAME' already exists"
+    echo "✓ Container image '$IMAGE' already exists"
 fi
 
 echo
@@ -277,6 +298,12 @@ fi
 if [ "$SHOULD_INSTALL" = false ]; then
     echo
     echo "Setup complete! Container image is ready."
+    if [ "$IMAGE_TAG" != "latest" ]; then
+        echo
+        echo "Run it with an already installed yolo script:"
+        echo "  yolo --tag=$IMAGE_TAG"
+        echo
+    fi
     echo "Run manually with preserved host paths (default):"
     echo "  podman run -it --rm --userns=keep-id \\"
     echo "    -v ~/.claude:~/.claude:Z \\"
@@ -285,7 +312,7 @@ if [ "$SHOULD_INSTALL" = false ]; then
     echo "    -w \"\$(pwd)\" \\"
     echo "    -e CLAUDE_CONFIG_DIR=~/.claude \\"
     echo "    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \\"
-    echo "    $IMAGE_NAME \\"
+    echo "    $IMAGE \\"
     echo "    claude --dangerously-skip-permissions"
     echo
     echo "Or with anonymized paths (/claude, /workspace):"
@@ -296,11 +323,11 @@ if [ "$SHOULD_INSTALL" = false ]; then
     echo "    -w /workspace \\"
     echo "    -e CLAUDE_CONFIG_DIR=/claude \\"
     echo "    -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \\"
-    echo "    $IMAGE_NAME \\"
+    echo "    $IMAGE \\"
     echo "    claude --dangerously-skip-permissions"
     echo
     echo "Pass extra podman options and claude arguments like:"
-    echo "  podman run ... [podman-options] $IMAGE_NAME claude [claude-args]"
+    echo "  podman run ... [podman-options] $IMAGE claude [claude-args]"
     exit 0
 fi
 
@@ -334,7 +361,11 @@ if [ "$SHOULD_INSTALL" = true ]; then
     echo "To start using YOLO mode:"
     echo "  1. Make sure ~/.local/bin is in your PATH (restart shell if needed)"
     echo "  2. Navigate to any project directory"
-    echo "  3. Run: yolo"
+    if [ "$IMAGE_TAG" = "latest" ]; then
+        echo "  3. Run: yolo"
+    else
+        echo "  3. Run: yolo --tag=$IMAGE_TAG  (image was built as '$IMAGE')"
+    fi
     echo
     echo "By default, yolo preserves original host paths for session compatibility."
     echo "Use --anonymized-paths flag for anonymized paths (/claude, /workspace):"
