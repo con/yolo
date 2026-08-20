@@ -298,7 +298,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `JJ_VERSION`           | `0.38.0` | Jujutsu version                            |
 | `DENO_VERSION`         | `""`     | Deno version (empty = latest)              |
 | `APPTAINER_VERSION`    | `1.4.5`  | Apptainer version                          |
-| `GIT_DELTA_VERSION`    | `0.18.2` | git-delta version                          |
+| `YOLO_BUILD_CMD`       | `""`     | Original `setup-yolo.sh` CLI invocation    |
 | `ZSH_IN_DOCKER_VERSION` | `1.2.0`  | zsh-in-docker version                      |
 
 ### Optional Extras
@@ -312,6 +312,12 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup             |
 | `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)   |
 | `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
+
+### Build Provenance
+
+`/yolo-build.sh` — a shell script placed at the root of the image that records
+the `setup-yolo.sh` CLI invocation used to build the image.  Running it
+replays the same build.
 
 ### Container Environment
 
@@ -369,6 +375,7 @@ After install, checks if `~/.local/bin` is in `$PATH` and warns if not.
 - `TZ` from `timedatectl` (falls back to `UTC`).
 - `EXTRA_PACKAGES` (space-separated).
 - Each extra as `EXTRA_$(UPPERCASE)=1`.
+- `YOLO_BUILD_CMD` — the original `setup-yolo.sh` invocation (written to `/yolo-build.sh` in the image).
 
 ---
 

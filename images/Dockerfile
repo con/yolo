@@ -85,6 +85,11 @@ RUN if [ "$EXTRA_APPTAINER" = "1" ]; then \
       rm "/tmp/${DEB}"; \
     fi
 
+# Store the CLI invocation used to produce this image
+ARG YOLO_BUILD_CMD=""
+RUN printf '#!/bin/sh\n# CLI invocation used to build this yolo image\n%s\n' "$YOLO_BUILD_CMD" > /yolo-build.sh && \
+    chmod +x /yolo-build.sh
+
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
   chown -R node:node /usr/local/share

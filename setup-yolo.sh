@@ -5,6 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="con-bomination-claude-code"
 DOCKERFILE_DIR="$SCRIPT_DIR/images"
 
+# Capture original CLI invocation for embedding in the container image
+YOLO_BUILD_CMD="setup-yolo.sh $*"
+
 # Default options
 BUILD_MODE="auto"
 INSTALL_MODE="auto"
@@ -155,7 +158,7 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     echo
 
     TZ=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "UTC")
-    BUILD_ARGS=(--build-arg "TZ=$TZ" --build-arg "CLAUDE_CACHEBUST=$(date +%s)")
+    BUILD_ARGS=(--build-arg "TZ=$TZ" --build-arg "CLAUDE_CACHEBUST=$(date +%s)" --build-arg "YOLO_BUILD_CMD=$YOLO_BUILD_CMD")
     if [ -n "$EXTRA_PACKAGES" ]; then
         BUILD_ARGS+=(--build-arg "EXTRA_PACKAGES=$EXTRA_PACKAGES")
     fi
