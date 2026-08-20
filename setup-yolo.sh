@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="con-bomination-claude-code"
 
 # Capture original CLI invocation for embedding in the container image
-YOLO_BUILD_CMD="setup-yolo.sh $@"
+YOLO_BUILD_CMD="setup-yolo.sh $*"
 DOCKERFILE_DIR="$SCRIPT_DIR/images"
 
 # Default options
