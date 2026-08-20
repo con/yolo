@@ -298,6 +298,7 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `JJ_VERSION`           | `0.38.0` | Jujutsu version                            |
 | `DENO_VERSION`         | `""`     | Deno version (empty = latest)              |
 | `APPTAINER_VERSION`    | `1.4.5`  | Apptainer version                          |
+| `GIT_DELTA_VERSION`    | `0.18.2` | git-delta version                          |
 | `YOLO_BUILD_CMD`       | `""`     | Original `setup-yolo.sh` CLI invocation    |
 | `ZSH_IN_DOCKER_VERSION` | `1.2.0`  | zsh-in-docker version                      |
 
