@@ -29,6 +29,28 @@ If you prefer the old behavior with anonymized paths (`/claude` and `/workspace`
 yolo --anonymized-paths
 ```
 
+### Image Tags
+
+The container image is `con-bomination-claude-code` and is tagged `latest` by
+default. Both scripts accept a `--tag` option so you can build and run
+alternative images (e.g. to test a Dockerfile change) without clobbering the
+image you use every day:
+
+```bash
+# Build a test image as con-bomination-claude-code:test,
+# leaving :latest and ~/.local/bin/yolo untouched
+./setup-yolo.sh --build=yes --install=no --tag=test
+
+# Run it
+yolo --tag=test
+
+# Back to the default image
+yolo
+```
+
+The tag can also be set per project or user-wide via `YOLO_IMAGE_TAG` in the
+config file (or in the environment); `--tag` overrides both.
+
 ### Git Worktree Support
 
 When running in a git worktree, `yolo` can detect and optionally bind mount the original repository. This allows Claude to access git objects and perform operations like commit and fetch. Control this behavior with the `--worktree` option:
@@ -94,6 +116,9 @@ YOLO_CLAUDE_ARGS=(
 
 # Default flags
 USE_NVIDIA=1
+
+# Image tag to run (default: latest)
+YOLO_IMAGE_TAG="test"
 ```
 
 **Volume shorthand syntax:**
@@ -123,8 +148,11 @@ Your credentials are stored in `~/.claude` on your host, so you only need to log
 If you prefer to run commands manually, first build the image from the `images/` directory:
 
 ```bash
-podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t con-bomination-claude-code images/
+podman build --build-arg TZ=$(timedatectl show --property=Timezone --value) -t con-bomination-claude-code:latest images/
 ```
+
+(Use another tag, e.g. `-t con-bomination-claude-code:test`, to keep test images
+around; `yolo --tag=test` then runs it.)
 
 Then run (with original host paths preserved by default):
 
@@ -137,7 +165,7 @@ podman run -it --rm \
   -w "$(pwd)" \
   -e CLAUDE_CONFIG_DIR="$HOME/.claude" \
   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
-  con-bomination-claude-code \
+  con-bomination-claude-code:latest \
   claude --dangerously-skip-permissions
 ```
 
@@ -152,7 +180,7 @@ podman run -it --rm \
   -w /workspace \
   -e CLAUDE_CONFIG_DIR=/claude \
   -e GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
-  con-bomination-claude-code \
+  con-bomination-claude-code:latest \
   claude --dangerously-skip-permissions
 ```
 

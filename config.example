@@ -71,6 +71,14 @@ YOLO_CLAUDE_ARGS=(
 # WORKTREE_MODE="ask"
 
 # ============================================================================
+# CONTAINER IMAGE
+# ============================================================================
+# Tag of the con-bomination-claude-code image to run (default: latest).
+# Build alternative tags with:  ./setup-yolo.sh --build=yes --tag=test
+# The --tag command line option overrides this value.
+# YOLO_IMAGE_TAG="latest"
+
+# ============================================================================
 # USAGE NOTES
 # ============================================================================
 # - This file is sourced as a bash script, so you can use bash syntax

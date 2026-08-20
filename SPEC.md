@@ -36,6 +36,8 @@ claude. If no `--` is present, all positional arguments go to claude.
 | `--anonymized-paths` | off      | Use `/claude` and `/workspace` instead of host paths         |
 | `--entrypoint=CMD`   | `claude` | Override container entrypoint                                |
 | `--entrypoint CMD`   | `claude` | Same, space-separated form                                   |
+| `--tag=TAG`          | `latest` | Image tag to run (`con-bomination-claude-code:TAG`)          |
+| `--tag TAG`          | `latest` | Same, space-separated form                                   |
 | `--worktree=MODE`    | `ask`    | Git worktree handling: `ask`, `bind`, `skip`, `error`        |
 | `--nvidia`           | off      | Enable NVIDIA GPU passthrough via CDI                        |
 | `--no-config`        | off      | Ignore all configuration files                               |
@@ -85,6 +87,11 @@ User-wide and project arrays are concatenated (user-wide first).
 | `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`     | Use anonymized container paths |
 | `USE_NVIDIA`           | `0\|1`   | `0`     | Enable NVIDIA GPU passthrough  |
 | `WORKTREE_MODE`        | `string` | `ask`   | Git worktree handling mode     |
+| `YOLO_IMAGE_TAG`       | `string` | `latest` | Image tag to run              |
+
+`YOLO_IMAGE_TAG` may also be set in the environment; config files override the
+environment and `--tag` overrides both. Tags must match
+`^[A-Za-z0-9_][A-Za-z0-9._-]*$`; an invalid tag is a hard error.
 
 ### Loading Order
 
@@ -97,6 +104,7 @@ User-wide and project arrays are concatenated (user-wide first).
 7. Expand volumes via `expand_volume()` and prepend to `PODMAN_ARGS`.
 8. Prepend `YOLO_PODMAN_OPTIONS` to `PODMAN_ARGS`.
 9. Prepend `YOLO_CLAUDE_ARGS` to `CLAUDE_ARGS`.
+10. Resolve the image tag: `--tag` if given, else `YOLO_IMAGE_TAG`, else `latest`.
 
 ---
 
@@ -243,7 +251,11 @@ When `USE_NVIDIA=1`:
 
 ### Image
 
-`con-bomination-claude-code`
+`con-bomination-claude-code:$IMAGE_TAG` (tag defaults to `latest`).
+
+The tag comes from `--tag`, `YOLO_IMAGE_TAG` (config file or environment), or
+`latest`. This allows test images built by `setup-yolo.sh --tag=TAG` to be run
+side by side with the default one.
 
 ---
 
@@ -341,16 +353,24 @@ setup-yolo.sh [OPTIONS]
 | `-h`, `--help`     | —       | —                                            | Show help and exit     |
 | `--build=MODE`     | `auto`  | `auto`, `yes`, `no`                          | Image build control    |
 | `--install=MODE`   | `auto`  | `auto`, `yes`, `no`                          | Script install control |
+| `--tag=TAG`        | `latest` | tag matching `^[A-Za-z0-9_][A-Za-z0-9._-]*$` | Tag to build/check     |
 | `--packages=PKGS`  | `""`    | comma/space-separated                        | Extra apt packages     |
 | `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`, `apptainer`, `all` | Predefined extras      |
 
 ### Build Behavior
+
+Existence checks, build (`podman build -t`), and all messages use the fully
+qualified reference `con-bomination-claude-code:$IMAGE_TAG`, so each tag is
+built and checked independently.
 
 | Mode   | Image Exists | Image Missing |
 |--------|--------------|---------------|
 | `auto` | Skip         | Build         |
 | `yes`  | Rebuild      | Build         |
 | `no`   | OK           | Error         |
+
+When a non-`latest` tag is used, the final message points at
+`yolo --tag=TAG` for running the freshly built image.
 
 ### Install Behavior
 
@@ -421,7 +441,8 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 ### Test Coverage
 
 - Volume expansion (shorthand, options, full form, partial form)
-- All CLI flags (`--help`, `--no-config`, `--anonymized-paths`, `--nvidia`, `--entrypoint`, `--worktree`)
+- All CLI flags (`--help`, `--no-config`, `--anonymized-paths`, `--nvidia`, `--entrypoint`, `--worktree`, `--tag`)
+- Image tag resolution (default, `--tag`, `YOLO_IMAGE_TAG`, precedence, invalid tags)
 - Argument routing (with and without `--` separator)
 - Configuration loading and merging (user + project arrays, scalar overrides)
 - `XDG_CONFIG_HOME` override
