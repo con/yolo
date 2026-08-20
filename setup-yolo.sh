@@ -6,7 +6,7 @@ IMAGE_NAME="con-bomination-claude-code"
 DOCKERFILE_DIR="$SCRIPT_DIR/images"
 
 # Capture original CLI invocation for embedding in the container image
-YOLO_BUILD_CMD="setup-yolo.sh $*"
+YOLO_BUILD_CMD="setup-yolo.sh $@"
 
 # Default options
 BUILD_MODE="auto"
