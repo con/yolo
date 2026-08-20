@@ -59,7 +59,9 @@ YOLO_CLAUDE_ARGS=(
 # DEFAULT FLAGS
 # ============================================================================
 # Set default behavior for yolo flags
-# Command line options will override these settings
+# Note: this file is sourced after the command line is parsed, so the flags
+# below override the matching command line options (YOLO_IMAGE_TAG excepted --
+# see below)
 
 # Use anonymized container paths (/claude, /workspace) instead of host paths
 # USE_ANONYMIZED_PATHS=0
@@ -71,11 +73,20 @@ YOLO_CLAUDE_ARGS=(
 # WORKTREE_MODE="ask"
 
 # ============================================================================
+# CONTAINER IMAGE
+# ============================================================================
+# Tag of the con-bomination-claude-code image to run (default: latest).
+# Build alternative tags with:  ./setup-yolo.sh --build=yes --tag=test
+# The --tag command line option overrides this value.
+# YOLO_IMAGE_TAG="latest"
+
+# ============================================================================
 # USAGE NOTES
 # ============================================================================
 # - This file is sourced as a bash script, so you can use bash syntax
 # - Arrays can span multiple lines for readability
-# - Command line arguments always take precedence over config file
+# - Command line arguments take precedence for --tag; the scalar flags above
+#   take precedence over the command line (see the note in that section)
 # - Use --no-config flag to ignore the config file entirely
 # - Use --install-config to recreate this template
 

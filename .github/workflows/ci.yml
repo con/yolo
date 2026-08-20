@@ -64,6 +64,24 @@ jobs:
           # Verify the image was built
           podman image exists con-bomination-claude-code
 
+      - name: Test --tag handling (no rebuild)
+        run: |
+          # A tag that was never built must fail with --build=no
+          if ./setup-yolo.sh --tag=never-built --build=no --install=no; then
+            echo "Expected failure for missing tagged image"
+            exit 1
+          fi
+
+          # Tag the image built above and verify setup finds it by tag
+          podman tag con-bomination-claude-code:latest con-bomination-claude-code:citest
+          ./setup-yolo.sh --tag=citest --build=no --install=no
+
+          # An invalid tag must be rejected
+          if ./setup-yolo.sh --tag="bad:tag" --build=no --install=no; then
+            echo "Expected failure for invalid tag"
+            exit 1
+          fi
+
       - name: Verify yolo script syntax
         run: |
           bash -n bin/yolo
@@ -96,6 +114,10 @@ jobs:
 
           echo "Testing: yolo -v /data:/data --"
           ./bin/yolo -v /data:/data -- || true
+
+          echo "Testing: yolo --tag=citest"
+          ./bin/yolo --tag=citest | grep -q "con-bomination-claude-code:citest"
+          echo "✓ --tag is passed through to podman run"
 
   integration-test:
     name: Integration Test
