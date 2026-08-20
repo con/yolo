@@ -8,12 +8,12 @@ per-action approval to keep the host safe.
 
 ## Components
 
-| Component          | Path             | Purpose                                          |
-|--------------------|------------------|--------------------------------------------------|
-| `bin/yolo`         | CLI wrapper      | Parses args, loads config, invokes `podman run`   |
-| `setup-yolo.sh`    | Setup script     | Builds the container image and installs `bin/yolo` |
-| `images/Dockerfile` | Image definition | Development environment with Claude Code          |
-| `config.example`   | Template         | Documented config file template                   |
+| Component           | Path             | Purpose                                            |
+|---------------------|------------------|----------------------------------------------------|
+| `bin/yolo`          | CLI wrapper      | Parses args, loads config, invokes `podman run`    |
+| `setup-yolo.sh`     | Setup script     | Builds the container image and installs `bin/yolo` |
+| `images/Dockerfile` | Image definition | Development environment with Claude Code           |
+| `config.example`    | Template         | Documented config file template                    |
 
 ---
 
@@ -30,18 +30,18 @@ claude. If no `--` is present, all positional arguments go to claude.
 
 ### Flags
 
-| Flag                 | Default  | Description                                                  |
-|----------------------|----------|--------------------------------------------------------------|
-| `-h`, `--help`       | —        | Show help and exit                                           |
-| `--anonymized-paths` | off      | Use `/claude` and `/workspace` instead of host paths         |
-| `--entrypoint=CMD`   | `claude` | Override container entrypoint                                |
-| `--entrypoint CMD`   | `claude` | Same, space-separated form                                   |
-| `--tag=TAG`          | `latest` | Image tag to run (`con-bomination-claude-code:TAG`)          |
-| `--tag TAG`          | `latest` | Same, space-separated form                                   |
-| `--worktree=MODE`    | `ask`    | Git worktree handling: `ask`, `bind`, `skip`, `error`        |
-| `--nvidia`           | off      | Enable NVIDIA GPU passthrough via CDI                        |
-| `--no-config`        | off      | Ignore all configuration files                               |
-| `--install-config`   | —        | Create or display `.git/yolo/config` template, then exit     |
+| Flag                 | Default  | Description                                              |
+|----------------------|----------|----------------------------------------------------------|
+| `-h`, `--help`       | —        | Show help and exit                                       |
+| `--anonymized-paths` | off      | Use `/claude` and `/workspace` instead of host paths     |
+| `--entrypoint=CMD`   | `claude` | Override container entrypoint                            |
+| `--entrypoint CMD`   | `claude` | Same, space-separated form                               |
+| `--tag=TAG`          | `latest` | Image tag to run (`con-bomination-claude-code:TAG`)      |
+| `--tag TAG`          | `latest` | Same, space-separated form                               |
+| `--worktree=MODE`    | `ask`    | Git worktree handling: `ask`, `bind`, `skip`, `error`    |
+| `--nvidia`           | off      | Enable NVIDIA GPU passthrough via CDI                    |
+| `--no-config`        | off      | Ignore all configuration files                           |
+| `--install-config`   | —        | Create or display `.git/yolo/config` template, then exit |
 
 ### Argument Routing
 
@@ -56,8 +56,8 @@ claude. If no `--` is present, all positional arguments go to claude.
 
 ### File Locations
 
-| Scope       | Path                                       | Precedence |
-|-------------|--------------------------------------------|------------|
+| Scope       | Path                                        | Precedence |
+|-------------|---------------------------------------------|------------|
 | User-wide   | `${XDG_CONFIG_HOME:-~/.config}/yolo/config` | Lower      |
 | Per-project | `.git/yolo/config`                          | Higher     |
 
@@ -72,22 +72,22 @@ auto-created from the built-in template and a message is printed to stderr.
 
 #### Arrays (merged: user-wide + project)
 
-| Key                    | Type       | Description                        |
-|------------------------|------------|------------------------------------|
-| `YOLO_PODMAN_VOLUMES`  | `string[]` | Volume mount specifications        |
-| `YOLO_PODMAN_OPTIONS`  | `string[]` | Additional `podman run` options    |
-| `YOLO_CLAUDE_ARGS`     | `string[]` | Arguments passed to claude         |
+| Key                   | Type       | Description                     |
+|-----------------------|------------|---------------------------------|
+| `YOLO_PODMAN_VOLUMES` | `string[]` | Volume mount specifications     |
+| `YOLO_PODMAN_OPTIONS` | `string[]` | Additional `podman run` options |
+| `YOLO_CLAUDE_ARGS`    | `string[]` | Arguments passed to claude      |
 
 User-wide and project arrays are concatenated (user-wide first).
 
 #### Scalars (project overrides user-wide; CLI overrides both)
 
-| Key                    | Type     | Default | Description                    |
-|------------------------|----------|---------|--------------------------------|
-| `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`     | Use anonymized container paths |
-| `USE_NVIDIA`           | `0\|1`   | `0`     | Enable NVIDIA GPU passthrough  |
-| `WORKTREE_MODE`        | `string` | `ask`   | Git worktree handling mode     |
-| `YOLO_IMAGE_TAG`       | `string` | `latest` | Image tag to run              |
+| Key                    | Type     | Default  | Description                    |
+|------------------------|----------|----------|--------------------------------|
+| `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`      | Use anonymized container paths |
+| `USE_NVIDIA`           | `0\|1`   | `0`      | Enable NVIDIA GPU passthrough  |
+| `WORKTREE_MODE`        | `string` | `ask`    | Git worktree handling mode     |
+| `YOLO_IMAGE_TAG`       | `string` | `latest` | Image tag to run               |
 
 `YOLO_IMAGE_TAG` may also be set in the environment; config files override the
 environment and `--tag` overrides both. Tags must match
@@ -112,23 +112,23 @@ environment and `--tag` overrides both. Tags must match
 
 ### Shorthand Expansion (`expand_volume`)
 
-| Input                   | Output                              | Rule                                         |
-|-------------------------|-------------------------------------|----------------------------------------------|
-| `~/projects`            | `$HOME/projects:$HOME/projects:Z`   | 1-to-1 with `:Z`                             |
-| `~/data::ro`            | `$HOME/data:$HOME/data:ro`          | 1-to-1 with custom options (no `:Z` appended) |
-| `/host:/container`      | `/host:/container:Z`                | Partial form, `:Z` appended                  |
-| `/host:/container:opts` | `/host:/container:opts`             | Full form, passed through unchanged          |
+| Input                   | Output                            | Rule                                          |
+|-------------------------|-----------------------------------|-----------------------------------------------|
+| `~/projects`            | `$HOME/projects:$HOME/projects:Z` | 1-to-1 with `:Z`                              |
+| `~/data::ro`            | `$HOME/data:$HOME/data:ro`        | 1-to-1 with custom options (no `:Z` appended) |
+| `/host:/container`      | `/host:/container:Z`              | Partial form, `:Z` appended                   |
+| `/host:/container:opts` | `/host:/container:opts`           | Full form, passed through unchanged           |
 
 Tilde (`~`) is expanded to `$HOME` in shorthand and `::` forms.
 
 ### Default Mounts
 
-| Mount         | Host Path            | Container Path               | Options               |
-|---------------|----------------------|------------------------------|-----------------------|
-| Claude home   | `~/.claude`          | `~/.claude` or `/claude`     | `:z` (rw, shared)     |
-| Git config    | `~/.gitconfig`       | `/tmp/.gitconfig`            | `ro,z` (shared)       |
-| Workspace     | `$(pwd)`             | `$(pwd)` or `/workspace`     | `:z` (rw, shared)     |
-| Worktree repo | `$original_repo_dir` | `$original_repo_dir`         | `:z` (rw, conditional) |
+| Mount         | Host Path            | Container Path           | Options                |
+|---------------|----------------------|--------------------------|------------------------|
+| Claude home   | `~/.claude`          | `~/.claude` or `/claude` | `:z` (rw, shared)      |
+| Git config    | `~/.gitconfig`       | `/tmp/.gitconfig`        | `ro,z` (shared)        |
+| Workspace     | `$(pwd)`             | `$(pwd)` or `/workspace` | `:z` (rw, shared)      |
+| Worktree repo | `$original_repo_dir` | `$original_repo_dir`     | `:z` (rw, conditional) |
 
 Default mounts use lowercase `:z` (shared SELinux label) to allow multiple
 concurrent yolo containers to access the same paths without EACCES errors.
@@ -141,23 +141,23 @@ The `~/.claude` directory is auto-created if missing.
 
 ### Preserved Paths (default)
 
-| Variable          | Value                            |
-|-------------------|----------------------------------|
-| `CLAUDE_DIR`      | `$HOME/.claude`                  |
-| `WORKSPACE_DIR`   | `$(pwd)`                         |
-| `CLAUDE_MOUNT`    | `$HOME/.claude:$HOME/.claude:z`  |
-| `WORKSPACE_MOUNT` | `$(pwd):$(pwd):z`                |
+| Variable          | Value                           |
+|-------------------|---------------------------------|
+| `CLAUDE_DIR`      | `$HOME/.claude`                 |
+| `WORKSPACE_DIR`   | `$(pwd)`                        |
+| `CLAUDE_MOUNT`    | `$HOME/.claude:$HOME/.claude:z` |
+| `WORKSPACE_MOUNT` | `$(pwd):$(pwd):z`               |
 
 Sessions are compatible between container and native Claude Code.
 
 ### Anonymized Paths (`--anonymized-paths`)
 
-| Variable          | Value                       |
-|-------------------|-----------------------------|
-| `CLAUDE_DIR`      | `/claude`                   |
-| `WORKSPACE_DIR`   | `/workspace`                |
-| `CLAUDE_MOUNT`    | `$HOME/.claude:/claude:z`   |
-| `WORKSPACE_MOUNT` | `$(pwd):/workspace:z`       |
+| Variable          | Value                     |
+|-------------------|---------------------------|
+| `CLAUDE_DIR`      | `/claude`                 |
+| `WORKSPACE_DIR`   | `/workspace`              |
+| `CLAUDE_MOUNT`    | `$HOME/.claude:/claude:z` |
+| `WORKSPACE_MOUNT` | `$(pwd):/workspace:z`     |
 
 All projects appear at `/workspace`, enabling cross-project session context.
 
@@ -175,12 +175,12 @@ All projects appear at `/workspace`, enabling cross-project session context.
 
 ### Handling Modes
 
-| Mode    | Behavior                                         |
-|---------|--------------------------------------------------|
-| `ask`   | Prompt user; warn about security implications    |
-| `bind`  | Automatically mount original repo                |
-| `skip`  | Do not mount original repo; continue normally    |
-| `error` | Exit with error if worktree detected             |
+| Mode    | Behavior                                      |
+|---------|-----------------------------------------------|
+| `ask`   | Prompt user; warn about security implications |
+| `bind`  | Automatically mount original repo             |
+| `skip`  | Do not mount original repo; continue normally |
+| `error` | Exit with error if worktree detected          |
 
 When mounted, the original repo is bind-mounted at its host path with `:z`.
 
@@ -224,30 +224,30 @@ When `USE_NVIDIA=1`:
 
 ### Fixed `podman run` Arguments
 
-| Argument       | Value                          | Purpose                            |
-|----------------|--------------------------------|------------------------------------|
-| `--log-driver` | `none`                         | No container logging               |
-| `-it`          | —                              | Interactive + TTY                  |
-| `--rm`         | —                              | Auto-remove on exit                |
-| `--userns`     | `keep-id:uid=1000,gid=1000`    | Map host UID/GID to 1000 (node)   |
-| `--name`       | generated                      | Container name from PWD + PID      |
-| `-w`           | `$WORKSPACE_DIR`               | Working directory                  |
+| Argument       | Value                       | Purpose                         |
+|----------------|-----------------------------|---------------------------------|
+| `--log-driver` | `none`                      | No container logging            |
+| `-it`          | —                           | Interactive + TTY               |
+| `--rm`         | —                           | Auto-remove on exit             |
+| `--userns`     | `keep-id:uid=1000,gid=1000` | Map host UID/GID to 1000 (node) |
+| `--name`       | generated                   | Container name from PWD + PID   |
+| `-w`           | `$WORKSPACE_DIR`            | Working directory               |
 
 ### Environment Variables
 
-| Variable                                 | Value              | Purpose                       |
-|------------------------------------------|--------------------|-------------------------------|
-| `CLAUDE_CONFIG_DIR`                      | `$CLAUDE_DIR`      | Claude config location        |
-| `GIT_CONFIG_GLOBAL`                      | `/tmp/.gitconfig`  | Git identity                  |
-| `CLAUDE_CODE_OAUTH_TOKEN`                | passthrough        | Auth token (if set on host)   |
-| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`   | passthrough        | Agent teams (if set on host)  |
+| Variable                               | Value             | Purpose                      |
+|----------------------------------------|-------------------|------------------------------|
+| `CLAUDE_CONFIG_DIR`                    | `$CLAUDE_DIR`     | Claude config location       |
+| `GIT_CONFIG_GLOBAL`                    | `/tmp/.gitconfig` | Git identity                 |
+| `CLAUDE_CODE_OAUTH_TOKEN`              | passthrough       | Auth token (if set on host)  |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | passthrough       | Agent teams (if set on host) |
 
 ### Container Command
 
-| Entrypoint               | Command                                                    |
-|--------------------------|------------------------------------------------------------|
-| Default (`claude`)       | `claude --dangerously-skip-permissions [CLAUDE_ARGS]`      |
-| Custom (`--entrypoint=X`) | `X [CLAUDE_ARGS]` (no `--dangerously-skip-permissions`)    |
+| Entrypoint                | Command                                                 |
+|---------------------------|---------------------------------------------------------|
+| Default (`claude`)        | `claude --dangerously-skip-permissions [CLAUDE_ARGS]`   |
+| Custom (`--entrypoint=X`) | `X [CLAUDE_ARGS]` (no `--dangerously-skip-permissions`) |
 
 ### Image
 
@@ -285,56 +285,56 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 
 ### Always-installed Tools
 
-| Tool                 | Install Method                                                |
-|----------------------|---------------------------------------------------------------|
-| Claude Code          | `npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}` |
-| git-delta            | deb package from GitHub release (v0.18.2)                     |
-| git-annex            | `uv tool install git-annex`                                   |
-| uv                   | curl installer from astral.sh                                 |
-| zsh + powerlevel10k  | zsh-in-docker v1.2.0 with git, fzf plugins                   |
+| Tool                | Install Method                                                    |
+|---------------------|-------------------------------------------------------------------|
+| Claude Code         | `npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}` |
+| git-delta           | deb package from GitHub release (v0.18.2)                         |
+| git-annex           | `uv tool install git-annex`                                       |
+| uv                  | curl installer from astral.sh                                     |
+| zsh + powerlevel10k | zsh-in-docker v1.2.0 with git, fzf plugins                        |
 
 ### Build Arguments
 
-| Arg                    | Default  | Description                                |
-|------------------------|----------|--------------------------------------------|
-| `TZ`                   | from host | Timezone                                   |
-| `CLAUDE_CODE_VERSION`  | `latest` | Claude Code npm version                    |
-| `EXTRA_PACKAGES`       | `""`     | Space-separated apt packages               |
-| `EXTRA_CUDA`           | `""`     | Set to `"1"` to enable CUDA toolkit        |
-| `EXTRA_PLAYWRIGHT`     | `""`     | Set to `"1"` to enable Playwright + Chromium |
-| `EXTRA_DATALAD`        | `""`     | Set to `"1"` to enable DataLad             |
-| `EXTRA_JJ`             | `""`     | Set to `"1"` to enable Jujutsu             |
-| `EXTRA_DENO`           | `""`     | Set to `"1"` to enable Deno                |
-| `EXTRA_ENTIRE`         | `""`     | Set to `"1"` to enable Entire CLI          |
-| `EXTRA_APPTAINER`      | `""`     | Set to `"1"` to enable Apptainer           |
-| `JJ_VERSION`           | `0.38.0` | Jujutsu version                            |
-| `DENO_VERSION`         | `""`     | Deno version (empty = latest)              |
-| `APPTAINER_VERSION`    | `1.4.5`  | Apptainer version                          |
-| `GIT_DELTA_VERSION`    | `0.18.2` | git-delta version                          |
-| `ZSH_IN_DOCKER_VERSION` | `1.2.0`  | zsh-in-docker version                      |
+| Arg                     | Default   | Description                                  |
+|-------------------------|-----------|----------------------------------------------|
+| `TZ`                    | from host | Timezone                                     |
+| `CLAUDE_CODE_VERSION`   | `latest`  | Claude Code npm version                      |
+| `EXTRA_PACKAGES`        | `""`      | Space-separated apt packages                 |
+| `EXTRA_CUDA`            | `""`      | Set to `"1"` to enable CUDA toolkit          |
+| `EXTRA_PLAYWRIGHT`      | `""`      | Set to `"1"` to enable Playwright + Chromium |
+| `EXTRA_DATALAD`         | `""`      | Set to `"1"` to enable DataLad               |
+| `EXTRA_JJ`              | `""`      | Set to `"1"` to enable Jujutsu               |
+| `EXTRA_DENO`            | `""`      | Set to `"1"` to enable Deno                  |
+| `EXTRA_ENTIRE`          | `""`      | Set to `"1"` to enable Entire CLI            |
+| `EXTRA_APPTAINER`       | `""`      | Set to `"1"` to enable Apptainer             |
+| `JJ_VERSION`            | `0.38.0`  | Jujutsu version                              |
+| `DENO_VERSION`          | `""`      | Deno version (empty = latest)                |
+| `APPTAINER_VERSION`     | `1.4.5`   | Apptainer version                            |
+| `GIT_DELTA_VERSION`     | `0.18.2`  | git-delta version                            |
+| `ZSH_IN_DOCKER_VERSION` | `1.2.0`   | zsh-in-docker version                        |
 
 ### Optional Extras
 
-| Extra        | What's Installed                                                        |
-|--------------|-------------------------------------------------------------------------|
-| `cuda`       | `nvidia-cuda-toolkit` (enables non-free/contrib apt sources)            |
-| `playwright` | System deps + `npm install -g playwright` + Chromium browser            |
-| `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`  |
-| `jj`         | Musl binary from GitHub release + zsh completion                        |
-| `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup             |
-| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)   |
+| Extra        | What's Installed                                                                          |
+|--------------|-------------------------------------------------------------------------------------------|
+| `cuda`       | `nvidia-cuda-toolkit` (enables non-free/contrib apt sources)                              |
+| `playwright` | System deps + `npm install -g playwright` + Chromium browser                              |
+| `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`                    |
+| `jj`         | Musl binary from GitHub release + zsh completion                                          |
+| `deno`       | Deno JS/TS runtime via install script + zsh/bash PATH setup                               |
+| `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)                     |
 | `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
 
 ### Container Environment
 
-| Variable             | Value                          |
-|----------------------|--------------------------------|
-| `DEVCONTAINER`       | `true`                         |
-| `SHELL`              | `/bin/zsh`                     |
-| `EDITOR`             | `vim`                          |
-| `VISUAL`             | `vim`                          |
-| `NPM_CONFIG_PREFIX`  | `/usr/local/share/npm-global`  |
-| `PATH`               | Includes npm-global/bin, `~/.local/bin`, `~/.deno/bin` |
+| Variable            | Value                                                  |
+|---------------------|--------------------------------------------------------|
+| `DEVCONTAINER`      | `true`                                                 |
+| `SHELL`             | `/bin/zsh`                                             |
+| `EDITOR`            | `vim`                                                  |
+| `VISUAL`            | `vim`                                                  |
+| `NPM_CONFIG_PREFIX` | `/usr/local/share/npm-global`                          |
+| `PATH`              | Includes npm-global/bin, `~/.local/bin`, `~/.deno/bin` |
 
 ---
 
@@ -348,14 +348,18 @@ setup-yolo.sh [OPTIONS]
 
 ### Flags
 
-| Flag               | Default | Values                                       | Description            |
-|--------------------|---------|----------------------------------------------|------------------------|
-| `-h`, `--help`     | —       | —                                            | Show help and exit     |
-| `--build=MODE`     | `auto`  | `auto`, `yes`, `no`                          | Image build control    |
-| `--install=MODE`   | `auto`  | `auto`, `yes`, `no`                          | Script install control |
-| `--tag=TAG`        | `latest` | tag matching `^[A-Za-z0-9_][A-Za-z0-9._-]*$` | Tag to build/check     |
-| `--packages=PKGS`  | `""`    | comma/space-separated                        | Extra apt packages     |
-| `--extras=EXTRAS`  | `""`    | `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`, `apptainer`, `all` | Predefined extras      |
+| Flag              | Default  | Values                 | Description            |
+|-------------------|----------|------------------------|------------------------|
+| `-h`, `--help`    | —        | —                      | Show help and exit     |
+| `--build=MODE`    | `auto`   | `auto`, `yes`, `no`    | Image build control    |
+| `--install=MODE`  | `auto`   | `auto`, `yes`, `no`    | Script install control |
+| `--tag=TAG`       | `latest` | any valid image tag    | Tag to build/check     |
+| `--packages=PKGS` | `""`     | comma/space-separated  | Extra apt packages     |
+| `--extras=EXTRAS` | `""`     | comma-separated extras | Predefined extras      |
+
+Valid extras: `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`,
+`apptainer`, and `all` (expands to every extra).
+Image tags must match `^[A-Za-z0-9_][A-Za-z0-9._-]*$`.
 
 ### Build Behavior
 
@@ -376,11 +380,11 @@ When a non-`latest` tag is used, the final message points at
 
 Installs `bin/yolo` to `$HOME/.local/bin/yolo`.
 
-| Mode   | Script Exists                          | Script Missing     |
-|--------|----------------------------------------|--------------------|
-| `auto` | Prompt if differs; skip if identical   | Prompt to install  |
-| `yes`  | Overwrite                              | Install            |
-| `no`   | Skip                                   | Skip               |
+| Mode   | Script Exists                        | Script Missing    |
+|--------|--------------------------------------|-------------------|
+| `auto` | Prompt if differs; skip if identical | Prompt to install |
+| `yes`  | Overwrite                            | Install           |
+| `no`   | Skip                                 | Skip              |
 
 After install, checks if `~/.local/bin` is in `$PATH` and warns if not.
 
@@ -411,12 +415,12 @@ After install, checks if `~/.local/bin` is in `$PATH` and warns if not.
 
 ### Isolation Mechanisms
 
-| Mechanism        | Technology                       | What It Protects               |
-|------------------|----------------------------------|--------------------------------|
-| Filesystem       | Podman mount-only                | Only mounted dirs visible      |
-| User namespace   | `--userns=keep-id:uid=1000,gid=1000` | No privilege escalation   |
-| Process          | Rootless podman                  | Isolated from host processes   |
-| Network          | **None**                         | Unrestricted outbound access   |
+| Mechanism      | Technology                           | What It Protects             |
+|----------------|--------------------------------------|------------------------------|
+| Filesystem     | Podman mount-only                    | Only mounted dirs visible    |
+| User namespace | `--userns=keep-id:uid=1000,gid=1000` | No privilege escalation      |
+| Process        | Rootless podman                      | Isolated from host processes |
+| Network        | **None**                             | Unrestricted outbound access |
 
 ### Deliberate Non-restrictions
 
@@ -461,11 +465,11 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 
 ### Jobs
 
-| Job          | Runner                      | What It Does                                         |
-|--------------|-----------------------------|------------------------------------------------------|
-| ShellCheck   | ubuntu-latest               | Lints `setup-yolo.sh` and `bin/yolo`                 |
-| Unit Tests   | ubuntu-latest, macos-latest | Runs BATS test suite                                 |
-| Test Setup   | ubuntu-latest               | Builds image via `setup-yolo.sh`, verifies syntax    |
-| Integration  | ubuntu-latest               | Full build + `podman run --rm ... claude --help`     |
+| Job         | Runner                      | What It Does                                      |
+|-------------|-----------------------------|---------------------------------------------------|
+| ShellCheck  | ubuntu-latest               | Lints `setup-yolo.sh` and `bin/yolo`              |
+| Unit Tests  | ubuntu-latest, macos-latest | Runs BATS test suite                              |
+| Test Setup  | ubuntu-latest               | Builds image via `setup-yolo.sh`, verifies syntax |
+| Integration | ubuntu-latest               | Full build + `podman run --rm ... claude --help`  |
 
 Integration test depends on ShellCheck and Test Setup passing.
