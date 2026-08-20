@@ -10,6 +10,8 @@ BUILD_MODE="auto"
 INSTALL_MODE="auto"
 EXTRA_PACKAGES=""
 EXTRAS=""
+CUDA_VERSION=""
+BASE_IMAGE=""
 
 show_help() {
     cat << EOF
@@ -39,6 +41,12 @@ OPTIONS:
                             entire     - Entire CLI (entireio/cli)
                             apptainer  - Apptainer container runtime (rootless)
                             all        - Enable all extras
+    --cuda-version=VER      CUDA toolkit release to install with --extras=cuda,
+                            in NVIDIA repository form (e.g. 13-0, 12-8).
+                            Default: newest available. Pin this when the host
+                            NVIDIA driver is older than the current CUDA release
+                            (13.x needs driver >= 580, 12.x needs >= 525).
+    --base-image=IMAGE      Base container image (default: node:24-trixie)
 
 EXAMPLES:
     # Interactive setup (default)
@@ -59,8 +67,11 @@ EXAMPLES:
     # Build with extra packages (e.g., ffmpeg, imagemagick)
     ./setup-yolo.sh --build=yes --packages="ffmpeg,imagemagick"
 
-    # Build with NVIDIA CUDA toolkit
+    # Build with NVIDIA CUDA toolkit (newest release)
     ./setup-yolo.sh --build=yes --extras=cuda
+
+    # Build with a CUDA toolkit pinned to match an older host driver
+    ./setup-yolo.sh --build=yes --extras=cuda --cuda-version=12-8
 
     # Build with Playwright browser automation
     ./setup-yolo.sh --build=yes --extras=playwright
@@ -115,6 +126,18 @@ while [[ $# -gt 0 ]]; do
             done
             shift
             ;;
+        --cuda-version=*)
+            CUDA_VERSION="${1#*=}"
+            if [[ ! "$CUDA_VERSION" =~ ^[0-9]+-[0-9]+$ ]]; then
+                echo "Error: --cuda-version expects NVIDIA repository form, e.g. 13-0 or 12-8"
+                exit 1
+            fi
+            shift
+            ;;
+        --base-image=*)
+            BASE_IMAGE="${1#*=}"
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
             echo "Run with --help for usage information"
@@ -151,6 +174,12 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     if [ -n "$EXTRAS" ]; then
         echo "Extras: $EXTRAS"
     fi
+    if [ -n "$CUDA_VERSION" ]; then
+        echo "CUDA toolkit: $CUDA_VERSION"
+    fi
+    if [ -n "$BASE_IMAGE" ]; then
+        echo "Base image: $BASE_IMAGE"
+    fi
     echo "This may take a few minutes..."
     echo
 
@@ -158,6 +187,12 @@ elif [ "$BUILD_MODE" = "yes" ] || [ "$IMAGE_EXISTS" = false ]; then
     BUILD_ARGS=(--build-arg "TZ=$TZ" --build-arg "CLAUDE_CACHEBUST=$(date +%s)")
     if [ -n "$EXTRA_PACKAGES" ]; then
         BUILD_ARGS+=(--build-arg "EXTRA_PACKAGES=$EXTRA_PACKAGES")
+    fi
+    if [ -n "$CUDA_VERSION" ]; then
+        BUILD_ARGS+=(--build-arg "CUDA_VERSION=$CUDA_VERSION")
+    fi
+    if [ -n "$BASE_IMAGE" ]; then
+        BUILD_ARGS+=(--build-arg "BASE_IMAGE=$BASE_IMAGE")
     fi
     # Pass individual extras as build args
     for extra in ${EXTRAS//,/ }; do

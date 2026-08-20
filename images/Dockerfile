@@ -1,5 +1,14 @@
 # Based on Anthropic's official Dockerfile: https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile
-FROM node:22
+#
+# Base: Node 24 (current LTS) on Debian 13 "trixie".  The distribution is
+# pinned explicitly rather than using the rolling `node:24` tag (still
+# bookworm) so that the distro-conditional logic below (apptainer, CUDA repo)
+# is deterministic and so the toolchain does not silently jump releases.
+#
+# Debian bookworm shipped git 2.39, which lacks `git worktree add --orphan`
+# (added in git 2.42); trixie ships 2.47.  See con/yolo#39.
+ARG BASE_IMAGE=node:24-trixie
+FROM ${BASE_IMAGE}
 
 ARG TZ
 ENV TZ="$TZ"
@@ -53,14 +62,48 @@ RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
     fi
 
 # NVIDIA CUDA toolkit for building CUDA extensions
-# Runtime GPU access (nvidia-smi, drivers) is handled by CDI at container runtime
-# To use: run container with --device nvidia.com/gpu=all (yolo --nvidia)
-# Requires non-free and contrib apt components
+# Runtime GPU access (nvidia-smi, driver libraries) is handled by CDI at
+# container runtime; run with --device nvidia.com/gpu=all (yolo --nvidia).
+#
+# Installed from NVIDIA's own CUDA apt repository rather than Debian's
+# nvidia-cuda-toolkit, because the Debian package (a) lags far behind — 11.8 in
+# bookworm, 12.4 in trixie — and (b) drags in libcuda1/driver userspace, which
+# then shadows the host driver libraries CDI injects and yields a
+# driver/userspace version mismatch inside the container.  See con/yolo#79.
+# The cuda-toolkit meta-package is driver-free by design, so the container keeps
+# using the host's driver.
+#
+# CUDA_VERSION pins a toolkit release ("13-0", "12-8", ...); empty installs the
+# newest one in the repository.  A CUDA 13.x toolkit requires host driver >= 580,
+# 12.x requires >= 525, so pin it if the host driver is older than the current
+# CUDA release.
+ARG CUDA_VERSION=""
 RUN if [ "$EXTRA_CUDA" = "1" ]; then \
-      sed -i 's/^Components: main$/Components: main contrib non-free/' /etc/apt/sources.list.d/debian.sources \
-      && apt-get update && apt-get install -y --no-install-recommends nvidia-cuda-toolkit \
-      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+      . /etc/os-release && \
+      if [ -z "$VERSION_ID" ]; then \
+        echo "EXTRA_CUDA needs a released Debian base ($PRETTY_NAME has no VERSION_ID); NVIDIA publishes no repo for it" && exit 1; \
+      fi && \
+      ARCH=$(dpkg --print-architecture) && \
+      case "$ARCH" in \
+        amd64) REPO_ARCH=x86_64 ;; \
+        arm64) REPO_ARCH=sbsa ;; \
+        *) echo "EXTRA_CUDA does not support architecture $ARCH" && exit 1 ;; \
+      esac && \
+      wget -qO /tmp/cuda-keyring.deb \
+        "https://developer.download.nvidia.com/compute/cuda/repos/debian${VERSION_ID%%.*}/${REPO_ARCH}/cuda-keyring_1.1-1_all.deb" && \
+      dpkg -i /tmp/cuda-keyring.deb && \
+      rm /tmp/cuda-keyring.deb && \
+      apt-get update && \
+      apt-get install -y --no-install-recommends "cuda-toolkit${CUDA_VERSION:+-$CUDA_VERSION}" && \
+      if [ ! -e /usr/local/cuda ]; then \
+        ln -s "$(ls -d /usr/local/cuda-*/ | sort -V | tail -1)" /usr/local/cuda; \
+      fi && \
+      echo /usr/local/cuda/lib64 > /etc/ld.so.conf.d/000-cuda-yolo.conf && ldconfig && \
+      apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
+
+# nvcc lives outside the default PATH; harmless when EXTRA_CUDA is not enabled
+ENV PATH="$PATH:/usr/local/cuda/bin"
 
 # Apptainer (rootless container/SIF runtime) — upstream Debian install instructions:
 # https://apptainer.org/docs/admin/main/installation.html#install-debian-packages

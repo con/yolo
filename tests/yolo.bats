@@ -229,3 +229,41 @@ EOF
     assert_success
     assert_output --partial "yolo/config"
 }
+
+# ── setup-yolo.sh build arguments (end-to-end with mock podman) ───
+
+@test "setup: --extras=cuda passes EXTRA_CUDA build arg" {
+    run_setup --build=yes --extras=cuda
+    assert_success
+    podman_args_contain "EXTRA_CUDA=1"
+}
+
+@test "setup: --cuda-version passes CUDA_VERSION build arg" {
+    run_setup --build=yes --extras=cuda --cuda-version=12-8
+    assert_success
+    podman_args_contain "CUDA_VERSION=12-8"
+}
+
+@test "setup: --cuda-version is omitted when not given" {
+    run_setup --build=yes --extras=cuda
+    assert_success
+    refute_podman_arg "CUDA_VERSION="
+}
+
+@test "setup: --cuda-version=13.0 (dotted) is rejected" {
+    run_setup --build=yes --extras=cuda --cuda-version=13.0
+    assert_failure
+    assert_output --partial "--cuda-version expects NVIDIA repository form"
+}
+
+@test "setup: --base-image passes BASE_IMAGE build arg" {
+    run_setup --build=yes --base-image=node:22-trixie
+    assert_success
+    podman_args_contain "BASE_IMAGE=node:22-trixie"
+}
+
+@test "setup: --base-image is omitted when not given" {
+    run_setup --build=yes
+    assert_success
+    refute_podman_arg "BASE_IMAGE="
+}

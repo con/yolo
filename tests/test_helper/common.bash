@@ -1,6 +1,7 @@
 # Common test helpers for yolo BATS tests
 
 YOLO_BIN="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/yolo"
+SETUP_BIN="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/setup-yolo.sh"
 
 # ── setup / teardown ──────────────────────────────────────────────
 
@@ -52,6 +53,15 @@ run_yolo() {
     export PATH="$TEST_BIN:$PATH"
     export XDG_CONFIG_HOME="$TEST_HOME/.config"
     run bash "$YOLO_BIN" "$@"
+}
+
+# Run setup-yolo.sh with mocked podman. Never installs the script.
+# The mock overwrites podman_args on each call, so the captured args are
+# those of the last invocation (`podman build`).
+run_setup() {
+    export HOME="$TEST_HOME"
+    export PATH="$TEST_BIN:$PATH"
+    run bash "$SETUP_BIN" --install=no "$@"
 }
 
 # Read captured podman args (one per line)

@@ -162,6 +162,36 @@ podman run -it --rm \
 
 The Dockerfile is based on [Anthropic's official setup](https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile) and includes Claude Code CLI plus common development tools. See the Dockerfile for the complete list.
 
+The base image is `node:24-trixie` — Node 24 (current LTS) on Debian 13
+"trixie", which provides git 2.47 (Debian 12 "bookworm" shipped 2.39, too old
+for `git worktree add --orphan`). Override it with `--base-image=` if you need a
+different base:
+
+```bash
+./setup-yolo.sh --build=yes --base-image=node:22-trixie
+```
+
+### GPU / CUDA
+
+`yolo --nvidia` passes the host GPU through via CDI, which injects the host's
+NVIDIA driver libraries into the container — so the image itself must not ship a
+driver of its own.
+
+The `cuda` extra installs the CUDA toolkit (`nvcc` and friends, no driver) from
+NVIDIA's own apt repository for the base image's Debian release, so it tracks
+current CUDA rather than the much older version Debian packages:
+
+```bash
+# Newest CUDA toolkit available
+./setup-yolo.sh --build=yes --extras=cuda
+
+# Pinned release, for a host whose driver is older than current CUDA
+./setup-yolo.sh --build=yes --extras=cuda --cuda-version=12-8
+```
+
+A CUDA 13.x toolkit needs host driver >= 580, and 12.x needs >= 525; check yours
+with `nvidia-smi` and pin `--cuda-version=` accordingly.
+
 ## Command Breakdown
 
 ### Default Behavior (Preserved Host Paths)
