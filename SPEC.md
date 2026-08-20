@@ -80,22 +80,29 @@ auto-created from the built-in template and a message is printed to stderr.
 
 User-wide and project arrays are concatenated (user-wide first).
 
-#### Scalars (project overrides user-wide; CLI overrides both)
+#### Scalars (project overrides user-wide)
 
-| Key                    | Type     | Default  | Description                    |
-|------------------------|----------|----------|--------------------------------|
-| `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`      | Use anonymized container paths |
-| `USE_NVIDIA`           | `0\|1`   | `0`      | Enable NVIDIA GPU passthrough  |
-| `WORKTREE_MODE`        | `string` | `ask`    | Git worktree handling mode     |
-| `YOLO_IMAGE_TAG`       | `string` | `latest` | Image tag to run               |
+| Key                    | Type     | Default  | Description                    | Precedence                     |
+|------------------------|----------|----------|--------------------------------|--------------------------------|
+| `USE_ANONYMIZED_PATHS` | `0\|1`   | `0`      | Use anonymized container paths | config overrides CLI           |
+| `USE_NVIDIA`           | `0\|1`   | `0`      | Enable NVIDIA GPU passthrough  | config overrides CLI           |
+| `WORKTREE_MODE`        | `string` | `ask`    | Git worktree handling mode     | config overrides CLI           |
+| `YOLO_IMAGE_TAG`       | `string` | `latest` | Image tag to run               | CLI (`--tag`) overrides config |
 
-`YOLO_IMAGE_TAG` may also be set in the environment; config files override the
-environment and `--tag` overrides both. Tags must match
-`^[A-Za-z0-9_][A-Za-z0-9._-]*$`; an invalid tag is a hard error.
+Config files are sourced *after* the command line is parsed, so for
+`USE_ANONYMIZED_PATHS`, `USE_NVIDIA`, and `WORKTREE_MODE` a value set in a
+config file silently overrides the corresponding flag (e.g. `USE_NVIDIA=0` in
+`.git/yolo/config` defeats `yolo --nvidia`). This is a known wart, not a
+design goal.
+
+`YOLO_IMAGE_TAG` is resolved explicitly after config loading instead: it may
+also be set in the environment, config files override the environment, and
+`--tag` overrides both. Tags must match `^[A-Za-z0-9_][A-Za-z0-9._-]*$`; an
+invalid tag is a hard error.
 
 ### Loading Order
 
-1. Parse CLI flags (sets defaults and overrides).
+1. Parse CLI flags (sets initial scalar values; steps 2 and 5 can overwrite them).
 2. Source user-wide config (if exists and `--no-config` not set).
 3. Locate `.git` directory (traverses up from `$PWD`; handles worktrees).
 4. Auto-create `.git/yolo/config` if `.git/yolo/` directory doesn't exist.

@@ -126,7 +126,12 @@ YOLO_IMAGE_TAG="test"
 - `"~/data::ro"` → `~/data:~/data:ro,Z` (1-to-1 with options)
 - `"~/data:/data:Z"` → `~/data:/data:Z` (explicit, unchanged)
 
-Command line options always override configuration file settings. Use `--no-config` to ignore the configuration file entirely.
+Use `--no-config` to ignore the configuration files entirely.
+
+Note on precedence: config files are sourced after the command line is parsed,
+so `USE_ANONYMIZED_PATHS`, `USE_NVIDIA`, and `WORKTREE_MODE` set in a config
+file override the matching command line flag. `YOLO_IMAGE_TAG` is the
+exception — `--tag` always wins over the config files and the environment.
 
 See `config.example` for a complete configuration template with detailed comments.
 
