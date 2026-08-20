@@ -1,6 +1,7 @@
 # Common test helpers for yolo BATS tests
 
 YOLO_BIN="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/yolo"
+SETUP_BIN="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/setup-yolo.sh"
 
 # ── setup / teardown ──────────────────────────────────────────────
 
@@ -54,6 +55,15 @@ run_yolo() {
     run bash "$YOLO_BIN" "$@"
 }
 
+# Run setup-yolo.sh with mocked podman. Never installs the script.
+# The mock overwrites podman_args on each call, so the captured args are
+# those of the last invocation (`podman build`).
+run_setup() {
+    export HOME="$TEST_HOME"
+    export PATH="$TEST_BIN:$PATH"
+    run bash "$SETUP_BIN" --install=no "$@"
+}
+
 # Read captured podman args (one per line)
 get_podman_args() {
     cat "$BATS_TEST_TMPDIR/podman_args" 2>/dev/null
@@ -86,4 +96,33 @@ write_user_config() {
 write_project_config() {
     mkdir -p "$TEST_REPO/.git/yolo"
     cat > "$TEST_REPO/.git/yolo/config"
+}
+
+# ── GPU check helpers (tools/gpu-check.py) ────────────────────────
+
+GPU_CHECK_BIN="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/tools/gpu-check.py"
+
+# Skip the test unless python3 is available (the checker is stdlib-only,
+# but some minimal CI images have no python at all).
+require_python() {
+    command -v python3 &>/dev/null || skip "python3 not available"
+}
+
+# True when a GPU could plausibly be reachable from here: the control device
+# node, or the kernel driver's /proc entry.  Either alone is enough -- some
+# container runtimes mask /proc/driver while CUDA still works.  This is the
+# same "present" notion gpu-check.py itself reports.
+has_gpu() {
+    [ -e /dev/nvidiactl ] || [ -r /proc/driver/nvidia/version ]
+}
+
+# Skip the test unless an NVIDIA GPU is actually reachable.  True inside
+# `yolo --nvidia` and on a bare host with the driver loaded; false on CI
+# runners, in a plain container, and on macOS.
+require_gpu() {
+    has_gpu || skip "no NVIDIA GPU visible here"
+}
+
+run_gpu_check() {
+    run python3 "$GPU_CHECK_BIN" "$@"
 }

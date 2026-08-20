@@ -1,5 +1,14 @@
 # Based on Anthropic's official Dockerfile: https://github.com/anthropics/claude-code/blob/07e13937b2d6e798ce1880b22ad6bd22115478e4/.devcontainer/Dockerfile
-FROM node:22
+#
+# Base: Node 24 (current LTS) on Debian 13 "trixie".  The distribution is
+# pinned explicitly rather than using the rolling `node:24` tag (still
+# bookworm) so that the distro-conditional logic below (the Apptainer package
+# flavour) is deterministic and the toolchain does not silently jump releases.
+#
+# Debian bookworm shipped git 2.39, which lacks `git worktree add --orphan`
+# (added in git 2.42); trixie ships 2.47.  See con/yolo#39.
+ARG BASE_IMAGE=node:24-trixie
+FROM ${BASE_IMAGE}
 
 ARG TZ
 ENV TZ="$TZ"
@@ -10,7 +19,6 @@ ARG CLAUDE_CODE_VERSION=latest
 ARG EXTRA_PACKAGES=""
 
 # Extras (set to "1" to enable)
-ARG EXTRA_CUDA=""
 ARG EXTRA_PLAYWRIGHT=""
 
 # Install basic development tools
@@ -52,16 +60,6 @@ RUN if [ "$EXTRA_PLAYWRIGHT" = "1" ]; then \
       npx playwright install-deps chromium; \
     fi
 
-# NVIDIA CUDA toolkit for building CUDA extensions
-# Runtime GPU access (nvidia-smi, drivers) is handled by CDI at container runtime
-# To use: run container with --device nvidia.com/gpu=all (yolo --nvidia)
-# Requires non-free and contrib apt components
-RUN if [ "$EXTRA_CUDA" = "1" ]; then \
-      sed -i 's/^Components: main$/Components: main contrib non-free/' /etc/apt/sources.list.d/debian.sources \
-      && apt-get update && apt-get install -y --no-install-recommends nvidia-cuda-toolkit \
-      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
-    fi
-
 # Apptainer (rootless container/SIF runtime) — upstream Debian install instructions:
 # https://apptainer.org/docs/admin/main/installation.html#install-debian-packages
 ARG EXTRA_APPTAINER=""
@@ -84,6 +82,17 @@ RUN if [ "$EXTRA_APPTAINER" = "1" ]; then \
       apt-get clean && rm -rf /var/lib/apt/lists/* && \
       rm "/tmp/${DEB}"; \
     fi
+
+# No CUDA userspace is installed on purpose.  GPU access is a runtime concern:
+# `yolo --nvidia` passes the host GPU through with CDI, which injects the host's
+# driver libraries (libcuda.so.1, libnvidia-ml.so.1) and device nodes into the
+# container.  Shipping a CUDA toolkit here would only add several GB and risk
+# shadowing those injected libraries with a mismatched userspace — the failure
+# reported in con/yolo#79.  Verify passthrough with tools/gpu-check.py.
+# If you need nvcc to compile CUDA sources in-container, install it yourself:
+# Debian's nvidia-cuda-toolkit lives in non-free, which this image does not
+# enable, so that means either a local Dockerfile edit or an nvcc wheel via
+# uv/pip.
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \

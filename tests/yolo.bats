@@ -295,3 +295,58 @@ EOF
     assert_success
     assert_output --partial "yolo/config"
 }
+
+# ── setup-yolo.sh build arguments (end-to-end with mock podman) ───
+
+@test "setup: --extras=cuda is accepted but passes no build arg" {
+    run_setup --build=yes --extras=cuda
+    assert_success
+    refute_podman_arg "EXTRA_CUDA=1"
+}
+
+@test "setup: --extras=cuda prints the no-op note" {
+    run_setup --build=yes --extras=cuda
+    assert_success
+    assert_output --partial "the cuda extra installs nothing"
+    assert_output --partial "yolo --nvidia"
+}
+
+@test "setup: --cuda-version is accepted but passes no build arg" {
+    run_setup --build=yes --cuda-version=12-8
+    assert_success
+    assert_output --partial "the cuda extra installs nothing"
+    refute_podman_arg "CUDA_VERSION="
+}
+
+@test "setup: --cuda-version=13.0 (dotted) is no longer rejected" {
+    run_setup --build=yes --cuda-version=13.0
+    assert_success
+}
+
+@test "setup: --extras=all excludes cuda and prints no note" {
+    run_setup --build=yes --extras=all
+    assert_success
+    refute_output --partial "installs nothing"
+    refute_podman_arg "EXTRA_CUDA=1"
+    podman_args_contain "EXTRA_PLAYWRIGHT=1"
+    podman_args_contain "EXTRA_APPTAINER=1"
+}
+
+@test "setup: --extras=cuda,jj still passes the real extra" {
+    run_setup --build=yes --extras=cuda,jj
+    assert_success
+    podman_args_contain "EXTRA_JJ=1"
+    refute_podman_arg "EXTRA_CUDA=1"
+}
+
+@test "setup: --base-image passes BASE_IMAGE build arg" {
+    run_setup --build=yes --base-image=node:22-trixie
+    assert_success
+    podman_args_contain "BASE_IMAGE=node:22-trixie"
+}
+
+@test "setup: --base-image is omitted when not given" {
+    run_setup --build=yes
+    assert_success
+    refute_podman_arg "BASE_IMAGE="
+}

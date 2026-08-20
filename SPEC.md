@@ -8,12 +8,13 @@ per-action approval to keep the host safe.
 
 ## Components
 
-| Component           | Path             | Purpose                                            |
-|---------------------|------------------|----------------------------------------------------|
-| `bin/yolo`          | CLI wrapper      | Parses args, loads config, invokes `podman run`    |
-| `setup-yolo.sh`     | Setup script     | Builds the container image and installs `bin/yolo` |
-| `images/Dockerfile` | Image definition | Development environment with Claude Code           |
-| `config.example`    | Template         | Documented config file template                    |
+| Component            | Path             | Purpose                                            |
+|----------------------|------------------|----------------------------------------------------|
+| `bin/yolo`           | CLI wrapper      | Parses args, loads config, invokes `podman run`    |
+| `setup-yolo.sh`      | Setup script     | Builds the container image and installs `bin/yolo` |
+| `images/Dockerfile`  | Image definition | Development environment with Claude Code           |
+| `config.example`     | Template         | Documented config file template                    |
+| `tools/gpu-check.py` | GPU probe        | Verifies GPU passthrough without `nvidia-smi`      |
 
 ---
 
@@ -225,6 +226,37 @@ When `USE_NVIDIA=1`:
 3. Add `--device nvidia.com/gpu=all` to podman args.
 4. Add `--security-opt label=disable` to allow GPU device access with SELinux.
 
+### Verifying Access (`tools/gpu-check.py`)
+
+CDI injects the host's driver libraries and device nodes, but not the
+`nvidia-smi` binary, so a container with working GPU access can still have no
+CLI to confirm it. `tools/gpu-check.py` confirms it using only the Python
+standard library (`ctypes`), so it needs no CUDA toolkit and no pip packages:
+
+| Layer         | Source                       | Reports                                    |
+|---------------|------------------------------|--------------------------------------------|
+| Kernel driver | `/proc/driver/nvidia`, `/dev` | Driver version, device nodes, GPU model    |
+| Telemetry     | `libnvidia-ml.so.1` (NVML)   | Utilization, memory, temperature, power    |
+| Compute       | `libcuda.so.1` (driver API)  | The checks below                           |
+
+Per-device compute checks, in order:
+
+1. `context create` — `cuCtxCreate`.
+2. `device allocation` — `cuMemAlloc` of `--alloc-mib` MiB (default 64).
+3. `host<->device copy` — `cuMemcpyHtoD` + `cuMemcpyDtoH`, byte-compared.
+4. `device-side memset` — `cuMemsetD32`, read back and verified.
+5. `kernel launch` — a vector add JIT-compiled from PTX embedded in the script.
+   The `.target` comes from the device's compute capability and the `.version`
+   from the driver's CUDA version, so no toolkit and no pinned arch is involved.
+
+Flags: `--json` (full report), `--quiet` (exit code only), `--alloc-mib N`.
+
+| Exit code | Meaning                                       |
+|-----------|-----------------------------------------------|
+| 0         | GPU present and usable for compute            |
+| 1         | GPU present but at least one check failed     |
+| 2         | No GPU or driver visible in this container    |
+
 ---
 
 ## 8. Container Runtime
@@ -270,7 +302,15 @@ side by side with the default one.
 
 ### Base
 
-`node:22`
+`node:24-trixie` — Node 24 (current LTS) on Debian 13 "trixie".
+
+The Debian release is pinned in the tag rather than tracking the rolling
+`node:24` tag (still Debian 12 "bookworm"), so distro-conditional build steps
+(the Apptainer package flavour) stay deterministic. Overridable
+with the `BASE_IMAGE` build argument.
+
+Notable versions from the base: git 2.47.3 (bookworm shipped 2.39, which lacks
+`git worktree add --orphan`), Python 3.13, glibc 2.41.
 
 ### Init Process
 
@@ -302,29 +342,28 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 
 ### Build Arguments
 
-| Arg                     | Default   | Description                                  |
-|-------------------------|-----------|----------------------------------------------|
-| `TZ`                    | from host | Timezone                                     |
-| `CLAUDE_CODE_VERSION`   | `latest`  | Claude Code npm version                      |
-| `EXTRA_PACKAGES`        | `""`      | Space-separated apt packages                 |
-| `EXTRA_CUDA`            | `""`      | Set to `"1"` to enable CUDA toolkit          |
-| `EXTRA_PLAYWRIGHT`      | `""`      | Set to `"1"` to enable Playwright + Chromium |
-| `EXTRA_DATALAD`         | `""`      | Set to `"1"` to enable DataLad               |
-| `EXTRA_JJ`              | `""`      | Set to `"1"` to enable Jujutsu               |
-| `EXTRA_DENO`            | `""`      | Set to `"1"` to enable Deno                  |
-| `EXTRA_ENTIRE`          | `""`      | Set to `"1"` to enable Entire CLI            |
-| `EXTRA_APPTAINER`       | `""`      | Set to `"1"` to enable Apptainer             |
-| `JJ_VERSION`            | `0.38.0`  | Jujutsu version                              |
-| `DENO_VERSION`          | `""`      | Deno version (empty = latest)                |
-| `APPTAINER_VERSION`     | `1.4.5`   | Apptainer version                            |
-| `GIT_DELTA_VERSION`     | `0.18.2`  | git-delta version                            |
-| `ZSH_IN_DOCKER_VERSION` | `1.2.0`   | zsh-in-docker version                        |
+| Arg                     | Default          | Description                                                     |
+|-------------------------|------------------|-----------------------------------------------------------------|
+| `BASE_IMAGE`            | `node:24-trixie` | Base container image                                            |
+| `TZ`                    | from host        | Timezone                                                        |
+| `CLAUDE_CODE_VERSION`   | `latest`         | Claude Code npm version                                         |
+| `EXTRA_PACKAGES`        | `""`             | Space-separated apt packages                                    |
+| `EXTRA_PLAYWRIGHT`      | `""`             | Set to `"1"` to enable Playwright + Chromium                    |
+| `EXTRA_DATALAD`         | `""`             | Set to `"1"` to enable DataLad                                  |
+| `EXTRA_JJ`              | `""`             | Set to `"1"` to enable Jujutsu                                  |
+| `EXTRA_DENO`            | `""`             | Set to `"1"` to enable Deno                                     |
+| `EXTRA_ENTIRE`          | `""`             | Set to `"1"` to enable Entire CLI                               |
+| `EXTRA_APPTAINER`       | `""`             | Set to `"1"` to enable Apptainer                                |
+| `JJ_VERSION`            | `0.38.0`         | Jujutsu version                                                 |
+| `DENO_VERSION`          | `""`             | Deno version (empty = latest)                                   |
+| `APPTAINER_VERSION`     | `1.4.5`          | Apptainer version                                               |
+| `GIT_DELTA_VERSION`     | `0.18.2`         | git-delta version                                               |
+| `ZSH_IN_DOCKER_VERSION` | `1.2.0`          | zsh-in-docker version                                           |
 
 ### Optional Extras
 
 | Extra        | What's Installed                                                                          |
 |--------------|-------------------------------------------------------------------------------------------|
-| `cuda`       | `nvidia-cuda-toolkit` (enables non-free/contrib apt sources)                              |
 | `playwright` | System deps + `npm install -g playwright` + Chromium browser                              |
 | `datalad`    | `uv tool install --with datalad-container --with datalad-next datalad`                    |
 | `jj`         | Musl binary from GitHub release + zsh completion                                          |
@@ -332,15 +371,19 @@ nano, ncdu, parallel, procps, shellcheck, sudo, tini, tree, unzip, vim, zsh
 | `entire`     | Entire CLI via temporary Go toolchain install (`entireio/cli` v0.6.1)                     |
 | `apptainer`  | Apptainer `.deb` from upstream GitHub release (amd64 only; bookworm/trixie auto-detected) |
 
+No CUDA userspace is installed. GPU access is entirely a runtime concern —
+`yolo --nvidia` injects the host driver via CDI (§7) — and shipping a toolkit
+would risk shadowing those injected libraries with a mismatched userspace.
+
 ### Container Environment
 
-| Variable            | Value                                                  |
-|---------------------|--------------------------------------------------------|
-| `DEVCONTAINER`      | `true`                                                 |
-| `SHELL`             | `/bin/zsh`                                             |
-| `EDITOR`            | `vim`                                                  |
-| `VISUAL`            | `vim`                                                  |
-| `NPM_CONFIG_PREFIX` | `/usr/local/share/npm-global`                          |
+| Variable            | Value                                                                         |
+|---------------------|-------------------------------------------------------------------------------|
+| `DEVCONTAINER`      | `true`                                                                        |
+| `SHELL`             | `/bin/zsh`                                                                    |
+| `EDITOR`            | `vim`                                                                         |
+| `VISUAL`            | `vim`                                                                         |
+| `NPM_CONFIG_PREFIX` | `/usr/local/share/npm-global`                                                 |
 | `PATH`              | Includes npm-global/bin, `~/.local/bin`, `~/.deno/bin` |
 
 ---
@@ -355,17 +398,21 @@ setup-yolo.sh [OPTIONS]
 
 ### Flags
 
-| Flag              | Default  | Values                 | Description            |
-|-------------------|----------|------------------------|------------------------|
-| `-h`, `--help`    | —        | —                      | Show help and exit     |
-| `--build=MODE`    | `auto`   | `auto`, `yes`, `no`    | Image build control    |
-| `--install=MODE`  | `auto`   | `auto`, `yes`, `no`    | Script install control |
-| `--tag=TAG`       | `latest` | any valid image tag    | Tag to build/check     |
-| `--packages=PKGS` | `""`     | comma/space-separated  | Extra apt packages     |
-| `--extras=EXTRAS` | `""`     | comma-separated extras | Predefined extras      |
+| Flag                 | Default  | Values                         | Description                              |
+|----------------------|----------|--------------------------------|------------------------------------------|
+| `-h`, `--help`       | —        | —                              | Show help and exit                       |
+| `--build=MODE`       | `auto`   | `auto`, `yes`, `no`            | Image build control                      |
+| `--install=MODE`     | `auto`   | `auto`, `yes`, `no`            | Script install control                   |
+| `--tag=TAG`          | `latest` | any valid image tag            | Tag to build/check                       |
+| `--packages=PKGS`    | `""`     | comma/space-separated          | Extra apt packages                       |
+| `--extras=EXTRAS`    | `""`     | comma-separated extras         | Predefined extras                        |
+| `--base-image=IMAGE` | `""`     | image reference                | Override the base image                  |
 
-Valid extras: `cuda`, `playwright`, `datalad`, `jj`, `deno`, `entire`,
-`apptainer`, and `all` (expands to every extra).
+Valid extras: `playwright`, `datalad`, `jj`, `deno`, `entire`, `apptainer`, and
+`all` (expands to every extra above). `cuda` is also accepted and
+`--cuda-version=VER` is parsed, but both are no-ops kept for backward
+compatibility: they install nothing, are not passed to the build, and print a
+note pointing at `yolo --nvidia`. `cuda` is not part of `all`.
 Image tags must match `^[A-Za-z0-9_][A-Za-z0-9._-]*$`.
 
 ### Build Behavior
@@ -398,7 +445,9 @@ After install, checks if `~/.local/bin` is in `$PATH` and warns if not.
 ### Build Arguments Passed
 
 - `TZ` from `timedatectl` (falls back to `UTC`).
+- `CLAUDE_CACHEBUST` (current epoch seconds).
 - `EXTRA_PACKAGES` (space-separated).
+- `BASE_IMAGE` when non-empty.
 - Each extra as `EXTRA_$(UPPERCASE)=1`.
 
 ---
@@ -444,9 +493,14 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 
 ### Test Infrastructure
 
+- `tests/yolo.bats` covers the CLI and setup script; `tests/gpu.bats` covers
+  `tools/gpu-check.py`.
 - Mock podman binary captures all arguments to a file for inspection.
 - Isolated test environment: `$BATS_TEST_TMPDIR` with fake `$HOME`, git repo, and PATH.
 - Helper functions: `run_yolo()`, `get_podman_args()`, `podman_args_contain()`, `refute_podman_arg()`, `write_user_config()`, `write_project_config()`.
+- GPU helpers: `run_gpu_check()`, `has_gpu()`, `require_gpu()`, `require_python()`.
+  Hardware-dependent tests `skip` where no GPU is visible, so `bats tests/`
+  passes unchanged on CI runners and macOS.
 - `bin/yolo` is sourceable without side effects via `BASH_SOURCE` guard.
 
 ### Test Coverage
@@ -460,6 +514,11 @@ BATS (Bash Automated Testing System) with `bats-assert` and `bats-support`.
 - Environment variable passthrough
 - Container naming
 - Config template generation
+- `tools/gpu-check.py`: stdlib-only imports, `--help`, `--json` shape, exit
+  status matching GPU presence, and the no-driver path (stubbed, so it is
+  covered on GPU hosts too)
+- On real hardware only: driver reporting, `--alloc-mib`, and every compute
+  check passing
 
 ---
 
