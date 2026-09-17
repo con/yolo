@@ -160,6 +160,40 @@ EOF
     podman_args_contain "$TEST_HOME/data:$TEST_HOME/data:Z"
 }
 
+@test "config: volume matching workspace dir is skipped with warning" {
+    write_user_config << EOF
+YOLO_PODMAN_VOLUMES=("$TEST_REPO")
+EOF
+    run_yolo
+    assert_success
+    assert_output --partial "Warning: skipping duplicate volume mount"
+    # workspace is still mounted (via the fixed WORKSPACE_MOUNT)
+    podman_args_contain "$TEST_REPO:$TEST_REPO:z"
+}
+
+@test "config: volume matching claude dir is skipped with warning" {
+    write_user_config << EOF
+YOLO_PODMAN_VOLUMES=("$TEST_HOME/.claude")
+EOF
+    run_yolo
+    assert_success
+    assert_output --partial "Warning: skipping duplicate volume mount"
+    # claude dir is still mounted
+    podman_args_contain "$TEST_HOME/.claude:$TEST_HOME/.claude:z"
+}
+
+@test "config: non-conflicting volumes still appear after dedup logic" {
+    write_user_config << EOF
+YOLO_PODMAN_VOLUMES=("$TEST_REPO" "$TEST_HOME/skills")
+EOF
+    run_yolo
+    assert_success
+    # workspace duplicate skipped
+    assert_output --partial "Warning: skipping duplicate volume mount"
+    # non-conflicting volume still present
+    podman_args_contain "$TEST_HOME/skills:$TEST_HOME/skills:Z"
+}
+
 @test "config: scalar override — project USE_NVIDIA=0 overrides user USE_NVIDIA=1" {
     write_user_config << 'EOF'
 USE_NVIDIA=1

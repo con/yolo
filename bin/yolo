@@ -286,6 +286,9 @@ if [ "$found_separator" = 0 ]; then
     PODMAN_ARGS=()
 fi
 
+# Expanded volumes from YOLO_PODMAN_VOLUMES; populated below if USE_CONFIG=1
+_CONFIG_VOLS=()
+
 # Load configuration if requested (after separator logic)
 if [ "$USE_CONFIG" -eq 1 ]; then
     # Load user-wide config first
@@ -355,10 +358,10 @@ if [ "$USE_CONFIG" -eq 1 ]; then
     YOLO_PODMAN_OPTIONS=("${_USER_OPTIONS[@]}" "${YOLO_PODMAN_OPTIONS[@]}")
     YOLO_CLAUDE_ARGS=("${_USER_CLAUDE_ARGS[@]}" "${YOLO_CLAUDE_ARGS[@]}")
 
-    # Process volumes and expand shorthand syntax
+    # Process volumes and expand shorthand syntax (defer adding until workspace
+    # paths are known so we can deduplicate against the workspace/claude mounts)
     for vol in "${YOLO_PODMAN_VOLUMES[@]}"; do
-        expanded=$(expand_volume "$vol")
-        PODMAN_ARGS=("-v" "$expanded" "${PODMAN_ARGS[@]}")
+        _CONFIG_VOLS+=("$(expand_volume "$vol")")
     done
 
     # Add podman options
@@ -457,6 +460,19 @@ else
     CLAUDE_MOUNT="$CLAUDE_HOME_DIR:$CLAUDE_HOME_DIR:z"
     WORKSPACE_MOUNT="$(pwd):$(pwd):z"
 fi
+
+# Add config volumes to PODMAN_ARGS, skipping any whose container destination
+# duplicates the workspace or claude mounts (prevents "duplicate mount" errors
+# when the user's YOLO_PODMAN_VOLUMES includes the current working directory).
+for _vol in "${_CONFIG_VOLS[@]}"; do
+    _dest="${_vol#*:}"   # strip host part
+    _dest="${_dest%%:*}" # strip options part
+    if [ "$_dest" = "$WORKSPACE_DIR" ] || [ "$_dest" = "$CLAUDE_DIR" ]; then
+        echo "Warning: skipping duplicate volume mount for destination '$_dest' (already mounted)" >&2
+    else
+        PODMAN_ARGS=("-v" "$_vol" "${PODMAN_ARGS[@]}")
+    fi
+done
 
 # Give a meaningful name based on PWD and the PID to help identifying
 # all those podman containers
